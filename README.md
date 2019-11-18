@@ -1,6 +1,13 @@
-# nof1gen (N-of-1 study general analysis)
+# nof1gen (N-of-1 study general analysis tool)
 
-This repo was created primarily to serve as an analysis tool for n-of-1 studies. For public use, please see nof1.pdf for more details. You can run Bayesian linear regression, ordinal/logistic regression, and poisson regression using this package.
+This repo was created primarily to serve as an analysis tool for n-of-1 studies. Currently, the code is tested on the following outcomes and models.
+
+| Models | Continuous |  Count | Binary | Ordinal | Nominal |
+| ------ | ---------- | ------ | ------ | ------- | ------- | 
+| Trend and correlation off<br>(Mean-only model) | 
+| Trend on, correlation off |
+| Trend off, correlation on |
+| Trend and correlation on  | 
 
 # To Install and Load the package
 
@@ -9,7 +16,6 @@ library(devtools)
 install_github("jiabei-yang/nof1gen", force = TRUE)
 library(nof1gen)
 ```
-
 
 
 ```{r}
