@@ -148,10 +148,10 @@ result_bsT_corrT <- nof1.run(nof1_bsT_corrT,
 ## Result summary
 ### Summary statistics
 ```{r}
-summarize_nof1(result_bsF_corrF)
-summarize_nof1(result_bsT_corrF)
-summarize_nof1(result_bsF_corrT)
-summarize_nof1(result_bsT_corrT)
+summarize_nof1(result_bsF_corrF, alpha = 0.05)
+summarize_nof1(result_bsT_corrF, alpha = 0.05)
+summarize_nof1(result_bsF_corrT, alpha = 0.05)
+summarize_nof1(result_bsT_corrT, alpha = 0.05)
 ```
 
 ### Plots
@@ -191,9 +191,9 @@ grid.arrange(p5, p6, p7, p8, ncol = 2)
 #### Credible interval of the treatment effect
 ```{r}
 trt_eff_plot(result.list = list(result_bsF_corrF = result_bsF_corrF,
-                                      result_bsF_corrT = result_bsF_corrT,
-                                      result_bsT_corrF = result_bsT_corrF,
-                                      result_bsT_corrT = result_bsT_corrT),
+                                result_bsF_corrT = result_bsF_corrT,
+                                result_bsT_corrF = result_bsT_corrF,
+                                result_bsT_corrT = result_bsT_corrT),
              level = 0.95)
 ```
 

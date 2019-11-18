@@ -13,36 +13,38 @@ nof1.data(Y, Treat, response = NULL, ncat = NULL, bs.trend = F,
 \arguments{
 \item{Y}{Outcome of the study. This should be a vector with \code{NA}'s included in time order.}
 
-\item{Treat}{Treatment indicator vector with same length as the outcome.}
+\item{Treat}{Treatment indicator vector with same length as the outcome. Can be character or numeric.}
 
-\item{response}{Type of outcome. Can be normal, binomial, poisson or ordinal.}
+\item{response}{Type of outcome. Can be "normal" for continuous outcome, "binomial" for binary outcome, 
+"poisson" for count outcome, or "ordinal" for ordinal or nominal outcome.}
 
 \item{ncat}{Number of categories. Used in ordinal models.}
 
 \item{bs.trend}{Indicator for whether the model should adjust for trend using splines. The default 
 is \code{F}.}
 
-\item{y.time}{parameter used for modeling splines. Time on the original scale with the same length 
-as the outcome. Still under development.}
+\item{y.time}{Parameter used for modeling splines. Time when the outcome is measured.}
 
 \item{knots.bt.block}{parameter used for modeling splines. Currently, program only supports knots 
 at the end of each block except for the last block if \code{T}.}
 
-\item{block.no}{parameter used for modeling splines. Block number with the same length as the outcome.}
+\item{block.no}{block indicator used for modeling splines. Block number with the same length as the outcome.}
 
-\item{corr.y}{Indicator for whether the model should model correlation. The default is \code{F}.}
+\item{corr.y}{Indicator for whether the correlation among measurements shoule be modeled. The default is 
+\code{F}.}
 
-\item{alpha.prior}{Prior for the intercept of the model.}
+\item{alpha.prior}{Prior for the intercept of the model. Not needed now since we are using treatment-specific 
+intercept model.}
 
-\item{beta.prior}{Prior for the treatment coefficient.}
+\item{beta.prior}{Prior for the treatment-specific intercept.}
 
-\item{eta.prior}{Prior for modelling splines. Still under development.}
+\item{eta.prior}{Prior for modelling spline terms.}
 
 \item{dc.prior}{Prior for the length between cutpoints. Used only for ordinal logistic models.}
 
 \item{c1.prior}{Prior for the first cutpoint. Used only for ordinal logistic models.}
 
-\item{rho.prior}{Prior for the correlated error model. Still under development.}
+\item{rho.prior}{Prior for the correlated error model.}
 
 \item{hy.prior}{Prior for the heterogeneity parameter. Supports uniform, gamma, and half normal for 
 normal and binomial response and wishart for multinomial response. It should be a list of length 3, 
@@ -52,13 +54,17 @@ uniform prior with lower bound 0 and upper bound 5 for the heterogeneity paramet
 distribution, the last two parameter would be the scale matrix and the degrees of freedom.}
 }
 \value{
-Creates list of variables that are used to run the model using \code{\link{nof1.run}}
+An object of class "nof1.data" that is used to run the model using \code{\link{nof1.run}} is a list 
+containing 
 \item{Y}{Outcome}
 \item{Treat}{Treatment}
 \item{ncat}{Number of categories for ordinal response}
 \item{nobs}{Total number of observations in a study}
-\item{Treat.name}{Treatment name besides baseline treatment}
-\item{response}{The type of response variable}
+\item{Treat.name}{Treatment name}
+\item{response}{Type of outcome}
+\item{Treat_\emph{Treat.name}}{Vector in the model matrix for \emph{Treat.name}}
+\item{bs.trend}{Indicator for whether the model should adjust for trend using splines}
+\item{corr.y}{Indicator for whether the correlation among measurements shoule be modeled}
 \item{priors}{Priors that the code will be using. Default priors are used if prior was not specified}
 \item{code}{Rjags model file code that is generated using information provided by the user. To view model file inside R, use \code{cat(nof1$code).}}
 }

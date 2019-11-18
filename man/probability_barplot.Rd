@@ -7,7 +7,7 @@
 probability_barplot(result.list)
 }
 \arguments{
-\item{result.list}{A list of modeling results from \code{nof1.run}.}
+\item{result.list}{A list of one or more modeling results from \code{nof1.run}.}
 }
 \description{
 Creates a posterior probability barplot for treatments

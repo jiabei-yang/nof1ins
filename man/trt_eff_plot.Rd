@@ -7,7 +7,9 @@
 trt_eff_plot(result.list, level = 0.95, ...)
 }
 \arguments{
-\item{result.list}{A list of modeling results from \code{nof1.run}.}
+\item{result.list}{A list of one or more modeling results from \code{nof1.run}.}
+
+\item{level}{The level of the credible intervals. The default is 0.95.}
 
 \item{...}{parameters to pass to \code{geom_errorbar}.}
 }

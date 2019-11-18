@@ -2,10 +2,8 @@
 #'
 #' A neat function to summarize the results.
 #'
-#' @param result A list which contains data file created
-#' by \code{nof1.data} and the result file created by \code{nof1.run}
-#' @param alpha The alpha value for the confidence interval. If no value is
-#' entered will give the 95\% confidence interval.
+#' @param result Modeling result of class \code{nof1.result} produced by \code{nof1.run}
+#' @param alpha The alpha value for the confidence interval. The default is 0.05.
 #' @return The function computes and returns a list of summary statistics of 
 #' the raw data and the fitted model.
 #' \item{raw.y.mean}{The raw mean of the outcome for each treatment}
@@ -18,8 +16,6 @@
 #' \item{post.y.ci}{The credible interval of the outcome for each treatment}
 #' \item{comp.treat.post.coef}{The posterior quantiles of one coefficient minus the other 
 #' when comparing two treatments}
-#' \item{comp.treat.post.y}{The posterior quantiles of outcome minus the other when 
-#' comparing two treatments}
 #' \item{p.comp.coef.greater.0}{The posterior probability of one coefficient minus the other 
 #' greater than 0}
 #' @export
@@ -103,7 +99,10 @@ summarize_nof1 <- function(result, alpha = 0.05){
 
 #' time series plot across different interventions
 #' 
-#' @param nof1 nof1 object created using nof1.data
+#' @param result Modeling result of class \code{nof1.result} produced by \code{nof1.run}.
+#' @param overlay.with.model Whether or not the model prediction should be plotted. The default is \code{F}.
+#' @param plot.by.treat Whether or not the measurements should be plotted in different panels by treatment.
+#' The default is \code{T}.
 #' @param trial.start Start time of the trial specified with \code{timestamp.format}.
 #' @param trial.end End time of the trial specified with \code{timestamp.format}.
 #' @param timestamp.format Format of the \code{trial.start} and \code{trial.end}.
@@ -352,8 +351,7 @@ raw_table <- function(nof1){
 #'
 #' Creates a kernel density estimation plot for a specific outcome
 #'
-#' @param result An object with information about the simulation. The object is
-#' derived from the output of nof1.run
+#' @param result Modeling result of class \code{nof1.result} produced by \code{nof1.run}.
 #' @param ... parameters to pass to \code{geom_histogram}.
 #' @export
 
@@ -426,7 +424,8 @@ kernel_plot <- function(result, comp = T, ...){
 #'
 #' Creates errorbars for the credible interval of estimated treatment effect
 #'
-#' @param result.list A list of modeling results from \code{nof1.run}.
+#' @param result.list A list of one or more modeling results from \code{nof1.run}.
+#' @param level The level of the credible intervals. The default is 0.95.
 #' @param ... parameters to pass to \code{geom_errorbar}.
 #' @export
 
@@ -477,7 +476,7 @@ trt_eff_plot <- function(result.list, level = 0.95, ...){
 #'
 #' Creates a posterior probability barplot for treatments
 #'
-#' @param result.list A list of modeling results from \code{nof1.run}.
+#' @param result.list A list of one or more modeling results from \code{nof1.run}.
 #' @export
 
 probability_barplot <- function(result.list){

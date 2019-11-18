@@ -7,11 +7,9 @@
 summarize_nof1(result, alpha = 0.05)
 }
 \arguments{
-\item{result}{A list which contains data file created
-by \code{nof1.data} and the result file created by \code{nof1.run}}
+\item{result}{Modeling result of class \code{nof1.result} produced by \code{nof1.run}}
 
-\item{alpha}{The alpha value for the confidence interval. If no value is
-entered will give the 95\% confidence interval.}
+\item{alpha}{The alpha value for the confidence interval. The default is 0.05.}
 }
 \value{
 The function computes and returns a list of summary statistics of 
@@ -26,8 +24,6 @@ the raw data and the fitted model.
 \item{post.y.ci}{The credible interval of the outcome for each treatment}
 \item{comp.treat.post.coef}{The posterior quantiles of one coefficient minus the other 
 when comparing two treatments}
-\item{comp.treat.post.y}{The posterior quantiles of outcome minus the other when 
-comparing two treatments}
 \item{p.comp.coef.greater.0}{The posterior probability of one coefficient minus the other 
 greater than 0}
 }

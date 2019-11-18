@@ -8,13 +8,18 @@ time_series_plot(result, overlay.with.model = F, plot.by.treat = T,
   trial.start = NULL, trial.end = NULL, timestamp.format = NULL)
 }
 \arguments{
+\item{result}{Modeling result of class \code{nof1.result} produced by \code{nof1.run}.}
+
+\item{overlay.with.model}{Whether or not the model prediction should be plotted. The default is \code{F}.}
+
+\item{plot.by.treat}{Whether or not the measurements should be plotted in different panels by treatment.
+The default is \code{T}.}
+
 \item{trial.start}{Start time of the trial specified with \code{timestamp.format}.}
 
 \item{trial.end}{End time of the trial specified with \code{timestamp.format}.}
 
 \item{timestamp.format}{Format of the \code{trial.start} and \code{trial.end}.}
-
-\item{nof1}{nof1 object created using nof1.data}
 }
 \description{
 time series plot across different interventions

@@ -7,8 +7,7 @@
 kernel_plot(result, comp = T, ...)
 }
 \arguments{
-\item{result}{An object with information about the simulation. The object is
-derived from the output of nof1.run}
+\item{result}{Modeling result of class \code{nof1.result} produced by \code{nof1.run}.}
 
 \item{...}{parameters to pass to \code{geom_histogram}.}
 }
