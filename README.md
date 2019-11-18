@@ -4,7 +4,7 @@ This repo was created primarily to serve as an analysis tool for n-of-1 studies.
 
 | Models |  Continuous  |     Count    |    Binary    |   Ordinal    |   Nominal    |
 | ------ | :----------: | :----------: | :----------: | :----------: | :----------: | 
-| Trend and correlation off<br>(Mean-only model) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Trend and correlation off (Mean-only model) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | Trend on, correlation off | :heavy_check_mark: |
 | Trend off, correlation on | :heavy_check_mark: |
 | Trend and correlation on  | :heavy_check_mark: |
