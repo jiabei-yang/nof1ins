@@ -4,20 +4,17 @@
 \alias{time_series_plot}
 \title{time series plot across different interventions}
 \usage{
-time_series_plot(nof1, timestamp = NULL,
-  timestamp.format = "\%m/\%d/\%Y \%H:\%M", x.name = "", y.name = "",
-  title = NULL, normal.response.range = NULL)
+time_series_plot(result, overlay.with.model = F, plot.by.treat = T,
+  trial.start = NULL, trial.end = NULL, timestamp.format = NULL)
 }
 \arguments{
+\item{trial.start}{Start time of the trial specified with \code{timestamp.format}.}
+
+\item{trial.end}{End time of the trial specified with \code{timestamp.format}.}
+
+\item{timestamp.format}{Format of the \code{trial.start} and \code{trial.end}.}
+
 \item{nof1}{nof1 object created using nof1.data}
-
-\item{timestamp}{time of the nof1 event occurring}
-
-\item{timestamp.format}{format of the timestamp}
-
-\item{normal.response.range}{the range of the outcome if continuous; a vector of minimum and maximum}
-
-\item{Outcomes.name}{used to label y-axis outcome variable}
 }
 \description{
 time series plot across different interventions

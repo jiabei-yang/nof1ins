@@ -4,12 +4,10 @@
 \alias{stacked_percent_barplot}
 \title{Stacked_percent_barplot for raw data (for ordinal or binomial data)}
 \usage{
-stacked_percent_barplot(nof1, title = NULL)
+stacked_percent_barplot(nof1)
 }
 \arguments{
 \item{nof1}{nof1 object created using nof1.data}
-
-\item{title}{title name}
 }
 \description{
 Stacked_percent_barplot for raw data (for ordinal or binomial data)

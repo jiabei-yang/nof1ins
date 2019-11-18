@@ -4,14 +4,12 @@
 \alias{frequency_plot}
 \title{Frequency plot for raw data}
 \usage{
-frequency_plot(nof1, xlab = NULL, title = NULL)
+frequency_plot(nof1, ...)
 }
 \arguments{
 \item{nof1}{nof1 object created using nof1.data}
 
-\item{xlab}{x axis label}
-
-\item{title}{title name}
+\item{...}{parameters to pass to \code{geom_bar} or \code{geom_histogram}.}
 }
 \description{
 Frequency plot for raw data

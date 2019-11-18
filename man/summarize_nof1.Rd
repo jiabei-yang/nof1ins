@@ -24,10 +24,12 @@ the raw data and the fitted model.
 \item{post.y.median}{The posterior median of the outcome for each treatment}
 \item{post.coef.ci}{The credible interval of the coefficient for each treatment}
 \item{post.y.ci}{The credible interval of the outcome for each treatment}
-\item{comp.treat.post.coef}{The posterior probabilities of one coefficient is greater 
-than the other when comparing two treatments}
-\item{comp.treat.post.y}{The posterior probabilities of outcome is greater than the 
-other when comparing two treatments}
+\item{comp.treat.post.coef}{The posterior quantiles of one coefficient minus the other 
+when comparing two treatments}
+\item{comp.treat.post.y}{The posterior quantiles of outcome minus the other when 
+comparing two treatments}
+\item{p.comp.coef.greater.0}{The posterior probability of one coefficient minus the other 
+greater than 0}
 }
 \description{
 A neat function to summarize the results.

@@ -6,12 +6,12 @@
 \usage{
 nof1.data(Y, Treat, response = NULL, ncat = NULL, bs.trend = F,
   y.time = NULL, knots.bt.block = NULL, block.no = NULL,
-  alpha.prior = NULL, beta.prior = NULL, eta.prior = NULL,
-  dc.prior = NULL, c1.prior = NULL, rho.prior = NULL,
-  hy.prior = NULL)
+  corr.y = F, alpha.prior = NULL, beta.prior = NULL,
+  eta.prior = NULL, dc.prior = NULL, c1.prior = NULL,
+  rho.prior = NULL, hy.prior = NULL)
 }
 \arguments{
-\item{Y}{Outcome of the study. This should be a vector with length of total number of observations.}
+\item{Y}{Outcome of the study. This should be a vector with \code{NA}'s included in time order.}
 
 \item{Treat}{Treatment indicator vector with same length as the outcome.}
 
@@ -19,7 +19,18 @@ nof1.data(Y, Treat, response = NULL, ncat = NULL, bs.trend = F,
 
 \item{ncat}{Number of categories. Used in ordinal models.}
 
-\item{y.time}{parameter used for modelling splines. Time on the original scale with same length as the outcome. Still under development.}
+\item{bs.trend}{Indicator for whether the model should adjust for trend using splines. The default 
+is \code{F}.}
+
+\item{y.time}{parameter used for modeling splines. Time on the original scale with the same length 
+as the outcome. Still under development.}
+
+\item{knots.bt.block}{parameter used for modeling splines. Currently, program only supports knots 
+at the end of each block except for the last block if \code{T}.}
+
+\item{block.no}{parameter used for modeling splines. Block number with the same length as the outcome.}
+
+\item{corr.y}{Indicator for whether the model should model correlation. The default is \code{F}.}
 
 \item{alpha.prior}{Prior for the intercept of the model.}
 
@@ -33,15 +44,17 @@ nof1.data(Y, Treat, response = NULL, ncat = NULL, bs.trend = F,
 
 \item{rho.prior}{Prior for the correlated error model. Still under development.}
 
-\item{hy.prior}{Prior for the heterogeneity parameter. Supports uniform, gamma, and half normal for normal and binomial response and wishart for multinomial response. It should be a list of length 3, where first element should be the distribution (one of dunif, dgamma, dhnorm, dwish) and the next two are the parameters associated with the distribution. For example, list("dunif", 0, 5) give uniform prior with lower bound 0 and upper bound 5 for the heterogeneity parameter. For wishart distribution, the last two parameter would be the scale matrix and the degrees of freedom.}
-
-\item{knots}{parameter used for modelling splines. Still under development.}
+\item{hy.prior}{Prior for the heterogeneity parameter. Supports uniform, gamma, and half normal for 
+normal and binomial response and wishart for multinomial response. It should be a list of length 3, 
+where first element should be the distribution (one of dunif, dgamma, dhnorm, dwish) and the next 
+two are the parameters associated with the distribution. For example, list("dunif", 0, 5) give 
+uniform prior with lower bound 0 and upper bound 5 for the heterogeneity parameter. For wishart 
+distribution, the last two parameter would be the scale matrix and the degrees of freedom.}
 }
 \value{
 Creates list of variables that are used to run the model using \code{\link{nof1.run}}
 \item{Y}{Outcome}
 \item{Treat}{Treatment}
-\item{baseline}{Baseline variable}
 \item{ncat}{Number of categories for ordinal response}
 \item{nobs}{Total number of observations in a study}
 \item{Treat.name}{Treatment name besides baseline treatment}
