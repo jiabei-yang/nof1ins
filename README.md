@@ -196,7 +196,7 @@ print(trt_eff_plot(result.list = list(result_bsF_corrF = result_bsF_corrF,
                    level = 0.95))
 ```
 
-#### Posterior probability that one treatment is better
+#### Posterior probability barplot that one treatment is better
 ```{r}
 print(probability_barplot(result.list = list(result_bsF_corrF = result_bsF_corrF,
                                              result_bsF_corrT = result_bsF_corrT,
