@@ -157,34 +157,30 @@ summarize_nof1(result_bsT_corrT)
 ### Plots
 #### Time series plot overlay with fitted model
 ```{r}
-p1 <- time_series_plot(result_bsF_corrF, overlay.with.model = T, plot.by.treat = F) +
+time_series_plot(result_bsF_corrF, overlay.with.model = T, plot.by.treat = F) +
     ggtitle("Trend: F & Corr: F")
-p2 <- time_series_plot(result_bsF_corrT, overlay.with.model = T, plot.by.treat = F) +
+time_series_plot(result_bsF_corrT, overlay.with.model = T, plot.by.treat = F) +
     ggtitle("Trend: F & Corr: T")
-p3 <- time_series_plot(result_bsT_corrF, overlay.with.model = T, plot.by.treat = F) +
+time_series_plot(result_bsT_corrF, overlay.with.model = T, plot.by.treat = F) +
     ggtitle("Trend: T & Corr: F") 
-p4 <- time_series_plot(result_bsT_corrT, overlay.with.model = T, plot.by.treat = F) +
+time_series_plot(result_bsT_corrT, overlay.with.model = T, plot.by.treat = F) +
     ggtitle("Trend: T & Corr: T") 
-
-grid.arrange(p1, p2, p3, p4, ncol = 2)
 ```
 
 #### Posterior distribution of treatment effect
 ```{r}
-p5 <- kernel_plot(result_bsF_corrF, bins = 40) + 
+kernel_plot(result_bsF_corrF, bins = 40) + 
     ggtitle("Trend: F & Corr: F") + 
     theme(legend.position = "none")
-p6 <- kernel_plot(result_bsF_corrT, bins = 40) + 
+kernel_plot(result_bsF_corrT, bins = 40) + 
     ggtitle("Trend: F & Corr: T") + 
     theme(legend.position = "none")
-p7 <- kernel_plot(result_bsT_corrF, bins = 40) + 
+kernel_plot(result_bsT_corrF, bins = 40) + 
     ggtitle("Trend: T & Corr: F") + 
     theme(legend.position = "none")
-p8 <- kernel_plot(result_bsT_corrT, bins = 40) + 
+kernel_plot(result_bsT_corrT, bins = 40) + 
     ggtitle("Trend: T & Corr: T") + 
     theme(legend.position = "none")
-
-grid.arrange(p5, p6, p7, p8, ncol = 2)
 ```
 
 #### Credible interval of the treatment effect
