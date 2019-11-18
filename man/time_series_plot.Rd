@@ -24,5 +24,8 @@ Y <- laughter$Y
 Treat <- laughter$Treat
 nof1 <- nof1.data(Y, Treat, ncat = 11, baseline = "Usual Routine", response = "ordinal")
 timestamp <- seq(as.Date('2015-01-01'),as.Date('2016-01-31'), length.out = length(Y))
-time_series_plot(nof1, timestamp = timestamp, timestamp.format = "\%m-\%d-\%Y", Outcome.name = "Stress")
+time_series_plot(nof1, 
+                 timestamp = timestamp, 
+                 timestamp.format = "\%m-\%d-\%Y", 
+                 Outcome.name = "Stress")
 }

@@ -112,7 +112,10 @@ summarize_nof1 <- function(result, alpha = 0.05){
 #' Treat <- laughter$Treat
 #' nof1 <- nof1.data(Y, Treat, ncat = 11, baseline = "Usual Routine", response = "ordinal")
 #' timestamp <- seq(as.Date('2015-01-01'),as.Date('2016-01-31'), length.out = length(Y))
-#' time_series_plot(nof1, timestamp = timestamp, timestamp.format = "%m-%d-%Y", Outcome.name = "Stress")
+#' time_series_plot(nof1, 
+#'                  timestamp = timestamp, 
+#'                  timestamp.format = "%m-%d-%Y", 
+#'                  Outcome.name = "Stress")
 #' @export
 
 # @param x.name used to label x-axis time variable. Default is "time".
@@ -419,7 +422,13 @@ kernel_plot <- function(result, comp = T, ...){
   
 }
 
-
+#' Errorbars for the credible interval of the treatment effect
+#'
+#' Creates errorbars for the credible interval of estimated treatment effect
+#'
+#' @param result.list A list of modeling results from \code{nof1.run}.
+#' @param ... parameters to pass to \code{geom_errorbar}.
+#' @export
 
 trt_eff_plot <- function(result.list, level = 0.95, ...){
   
@@ -464,6 +473,12 @@ trt_eff_plot <- function(result.list, level = 0.95, ...){
 }
 
 
+#' Posterior probability barplot
+#'
+#' Creates a posterior probability barplot for treatments
+#'
+#' @param result.list A list of modeling results from \code{nof1.run}.
+#' @export
 
 probability_barplot <- function(result.list){
   

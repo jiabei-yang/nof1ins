@@ -19,4 +19,5 @@ NULL
 #' @import tidyr
 #' @import dplyr
 #' @import reshape2
+#' @import splines
 NULL
