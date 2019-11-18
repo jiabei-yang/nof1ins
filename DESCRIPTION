@@ -1,12 +1,12 @@
-Package: nof1
+Package: nof1gen
 Type: Package
-Title: Analysis of N of 1 Trials
+Title: N-of-1 study general analysis tool
 Version: 0.5.0
 Depends: R (>= 2.10)
 Imports: rjags (>= 4-6), splines, combinat, MASS, jsonlite, ggplot2, scales, coda (>= 0.13)
 Author: Jiabei Yang, Michael Seo, Christopher Schmid
 Maintainer: Jiabei Yang <jiabei_yang@brown.edu>
-Description: A package for running analysis for N of 1 study trials. Runs Bayesian linear regression, ordinal/logistic regression, and poisson regression. Includes different plots to visualize the results.
+Description: A package for running analysis for N of 1 studies. Runs Bayesian linear regression, ordinal/logistic regression, and poisson regression. Includes different plots to visualize the results.
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
