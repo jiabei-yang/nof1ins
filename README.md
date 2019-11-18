@@ -4,12 +4,12 @@ This repo was created primarily to serve as an analysis tool for n-of-1 studies.
 
 | Models | Continuous |  Count | Binary | Ordinal | Nominal |
 | ------ | ---------- | ------ | ------ | ------- | ------- | 
-| Trend and correlation off<br>(Mean-only model) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
-| Trend on, correlation off | :white_check_mark: |
-| Trend off, correlation on | :white_check_mark: |
-| Trend and correlation on  | :white_check_mark: |
+| Trend and correlation off<br>(Mean-only model) | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Trend on, correlation off | :heavy_check_mark: |
+| Trend off, correlation on | :heavy_check_mark: |
+| Trend and correlation on  | :heavy_check_mark: |
 
-# To install and load the package
+## To install and load the package
 
 ```{r}
 library(devtools)
@@ -17,9 +17,35 @@ install_github("jiabei-yang/nof1gen", force = TRUE)
 library(nof1gen)
 ```
 
-# Run models
+## Prepare data
 ```{r}
+data.used <- data.frame(Y     = c(9, 9, 10, 11, 9, 7, 6, 6, 6, 6, 5, 5, 6, 4, 6, 6, 7, 7, 9, 8, 8, 7, NA, 6, 6, 7, NA, 8),
+						Treat = rep(c(1, 2, 1, 2), each = 7),
+						Day   = 1:28,
+						Block = rep(c(1, 2), each = 14))
+```
 
+
+## Run models
+### Trend and correlation off (Mean-only model)
+```{r}
+# Mean only model
+  nof1_part1_bsF_corrF <- nof1.data(Y              = data.used$Y, 
+                                    Treat          = data.used$Treat, 
+                                    response       = "normal", 
+                                    ncat           = NULL, 
+                                    bs.trend       = F,
+                                    y.time         = NULL, 
+                                    knots.bt.block = NULL,
+                                    block.no       = NULL,
+                                    corr.y         = F,
+                                    alpha.prior    = NULL, 
+                                    beta.prior     = NULL, 
+                                    eta.prior      = NULL, 
+                                    dc.prior       = NULL, 
+                                    c1.prior       = NULL,
+                                    rho.prior      = NULL, 
+                                    hy.prior       = NULL)
 ```
 
 
