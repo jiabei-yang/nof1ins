@@ -158,6 +158,7 @@ summarize_nof1(result_bsT_corrT, alpha = 0.05)
 #### Time series plot overlay with fitted model
 ```{r}
 library(ggplot2)
+library(gridExtra)
 p1 <- time_series_plot(result_bsF_corrF, overlay.with.model = T, plot.by.treat = F) +
     ggtitle("Trend: F & Corr: F")
 p2 <- time_series_plot(result_bsF_corrT, overlay.with.model = T, plot.by.treat = F) +
