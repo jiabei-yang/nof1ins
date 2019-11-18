@@ -88,6 +88,63 @@ result_bsT_corrF <- nof1.run(nof1_bsT_corrF,
                              extra.pars.save = NULL)
 ```
 
+### Trend off, correlation on 
+```{r}
+nof1_bsF_corrT <- nof1.data(Y              = data.used$Y, 
+                            Treat          = data.used$Treat, 
+                            response       = "normal", 
+                            ncat           = NULL, 
+                            bs.trend       = F,
+                            y.time         = NULL, 
+                            knots.bt.block = NULL,
+                            block.no       = NULL,
+                            corr.y         = T,
+                            alpha.prior    = NULL, 
+                            beta.prior     = NULL, 
+                            eta.prior      = NULL, 
+                            dc.prior       = NULL, 
+                            c1.prior       = NULL,
+                            rho.prior      = NULL, 
+                            hy.prior       = NULL)
+
+result_bsF_corrT <- nof1.run(nof1_bsF_corrT, 
+                             inits           = NULL, 
+                             n.chains        = 3,
+                             max.run         = 100000, 
+                             setsize         = 10000, 
+                             n.run           = 50000,
+                             conv.limit      = 1.05, 
+                             extra.pars.save = NULL)
+```
+### Trend on, correlation on
+```{r}
+nof1_bsT_corrT <- nof1.data(Y              = data.used$Y, 
+                            Treat          = data.used$Treat, 
+                            response       = "normal", 
+                            ncat           = NULL, 
+                            bs.trend       = T,
+                            y.time         = data.used$Day, 
+                            knots.bt.block = T,
+                            block.no       = data.used$Block,
+                            corr.y         = T,
+                            alpha.prior    = NULL, 
+                            beta.prior     = NULL, 
+                            eta.prior      = NULL, 
+                            dc.prior       = NULL, 
+                            c1.prior       = NULL,
+                            rho.prior      = NULL, 
+                            hy.prior       = NULL)
+
+result_bsT_corrT <- nof1.run(nof1_bsT_corrT, 
+                             inits           = NULL, 
+                             n.chains        = 3,
+                             max.run         = 100000, 
+                             setsize         = 10000, 
+                             n.run           = 50000,
+                             conv.limit      = 1.05, 
+                             extra.pars.save = NULL)
+```
+
 
 
 
