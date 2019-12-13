@@ -138,12 +138,12 @@ nof1.poisson.rjags <- function(nof1){
       code <- paste0(code, " + beta_", i, "*Treat_", i, "[i]")
     }
   }
-
-  # if(!is.null(knots)){
-  #   for(j in 1:ncol(BS)){
-  #     code <- paste0(code, " + gamma", j, "* BS[i,", j, "]")
-  #   }
-  # }
+  
+  if (bs.trend){
+    for (i in 1:bs_df){
+      code <- paste0(code, " + eta_", i, "*bs", i, "[i]")
+    }
+  }
 
   code <- paste0(code,
                  "\n\t\tY[i] ~ dpois(lambda[i])",
@@ -154,11 +154,12 @@ nof1.poisson.rjags <- function(nof1){
     code <- paste0(code, "\n\tbeta_", i, " ~ ", beta.prior[[1]], "(", beta.prior[[2]], ",", beta.prior[[3]], ")")
   }
 
-  # if(!is.null(knots)){
-  #   for(j in 1:ncol(BS)){
-  #     code <- paste0(code, "\n\tgamma", j, " ~ ", gamma.prior[[1]], "(", gamma.prior[[2]], ",", gamma.prior[[3]], ")")
-  #   }
-  # }
+  if (bs.trend){
+    for (i in 1:bs_df){
+      code <- paste0(code, "\n\teta_", i, " ~ ", eta.prior[[1]], "(", eta.prior[[2]], ", ", eta.prior[[3]], ")")
+    }
+  }
+  
   code <- paste0(code, "\n}")
   return(code)
   })
