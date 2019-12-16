@@ -77,6 +77,7 @@ nof1.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, setsize
   data <- list(Y = nof1$Y)
   for(i in nof1$Treat.name){
     data[[paste0("Treat_", i)]] <- nof1[[paste0("Treat_", i)]]
+    data[[paste0("Treat_", i)]][is.na(data[[paste0("Treat_", i)]])] <- 0
   }
   
   if (nof1$bs.trend) {
@@ -97,59 +98,6 @@ nof1.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, setsize
   class(result) <- "nof1.result"
   return(result)
   
-  # with(nof1, {
-  # 
-  # # response <- nof1$response
-  # 
-  #   if (response == "ordinal"){
-  #     pars.save <- "c"
-  #   } else {
-  #     pars.save <- NULL
-  #   }
-  # 
-  # # Treat.name <- nof1$Treat.name
-  #   for(i in Treat.name){
-  #     pars.save <- c(pars.save, paste0("beta_", i))
-  #   }
-  # 
-  #   if(response == "normal"){
-  #     pars.save <- c(pars.save, "sd")
-  #   }
-  #   
-  #   # bs_df <- nof1$bs_df
-  #   if (bs.trend) {
-  #     for(i in 1:bs_df){
-  #       pars.save <- c(pars.save, paste0("eta_", i))
-  #     }
-  #   }
-  # 
-  #   if (corr.y) {
-  #     pars.save <- c(pars.save, "rho")
-  #   }
-  #   
-  #   # Y <- nof1$Y
-  #   data <- list(Y = Y)
-  #   for(i in Treat.name){
-  #     data[[paste0("Treat_", i)]] <- nof1[[paste0("Treat_", i)]]
-  #   }
-  # 
-  #   if (bs.trend) {
-  #     for (i in 1:bs_df){
-  #       data[[paste0("bs", i)]] <- nof1[[paste0("bs", i)]]
-  #     }
-  #   }
-  #   
-  #   if(is.null(inits)){
-  #     inits <- nof1.inits(nof1, n.chains)
-  #   }
-  #   samples <- jags.fit(nof1, data, pars.save, inits, n.chains, max.run, setsize, n.run, conv.limit)
-  #   
-  #   result <- list(nof1 = nof1, inits = inits, pars.save = pars.save, data.rjags = data)
-  #   result <- c(result, samples)
-  #   
-  #   class(result) <- "nof1.result"
-  #   return(result)
-  # })
 }
 
 jags.fit <- function(nof1, data, pars.save, inits, n.chains, max.run, setsize, n.run, conv.limit){

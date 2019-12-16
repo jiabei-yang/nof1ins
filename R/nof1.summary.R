@@ -146,13 +146,15 @@ time_series_plot <- function(result,
     
     if (plot.by.treat){
       fig <- ggplot(data, aes(x = time, Y, color = Treatment)) + 
-        geom_point(na.rm = T) +
+        geom_point() +
         facet_wrap(. ~ Treatment) + 
-        theme_bw()
+        theme_bw() + 
+        scale_color_discrete(na.translate = FALSE)
     } else{
       fig <- ggplot(data, aes(x = time, Y, color = Treatment)) + 
-        geom_point(na.rm = T) + 
-        theme_bw()
+        geom_point() + 
+        theme_bw() + 
+        scale_color_discrete(na.translate = FALSE)
     }
     
     if (overlay.with.model) {
@@ -163,9 +165,11 @@ time_series_plot <- function(result,
       samples    <- do.call(rbind, result$samples)
       median.beta <- apply(samples[, col.treat], 2, median)
       
+      treat.name.xundsc <- gsub("\\_", " ", treat.name)
+      
       for (i in 1:length(treat.name)){
         data <- data %>%
-          mutate(model = model + median.beta[i] * (Treatment == treat.name[i]))
+          mutate(model = model + median.beta[i] * (Treatment == treat.name.xundsc[i]))
       }
       
       if (result$nof1$bs.trend) {
