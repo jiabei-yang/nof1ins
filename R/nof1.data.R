@@ -8,9 +8,12 @@
 #' @param bs.trend Indicator for whether the model should adjust for trend using splines. The default 
 #' is \code{F}.
 #' @param y.time Parameter used for modeling splines. Time when the outcome is measured. 
-#' @param knots.bt.block parameter used for modeling splines. Currently, program only supports knots 
-#' at the end of each block except for the last block if \code{T}.
-#' @param block.no block indicator used for modeling splines. Block number with the same length as the outcome.
+#' @param knots.bt.block parameter used for modeling splines. Indicator for whether or not knots should be set
+#' at the end of each block except for the last block. If \code{TRUE}, user should then specify \code{block.no};
+#' if \code{FALSE}, user should then specify \code{bs.df}.
+#' @param block.no Block number used for modeling splines for the setting where the knots are set at the end 
+#' of each block. Block number with the same length as the outcome.
+#' @param bs.df Degrees of freedom for modeling splines when knots are not set at the end of each block.
 #' @param corr.y Indicator for whether the correlation among measurements shoule be modeled. The default is 
 #' \code{F}.
 #' @param alpha.prior Prior for the intercept of the model. Not needed now since we are using treatment-specific 
@@ -26,6 +29,7 @@
 #' two are the parameters associated with the distribution. For example, list("dunif", 0, 5) give 
 #' uniform prior with lower bound 0 and upper bound 5 for the heterogeneity parameter. For wishart 
 #' distribution, the last two parameter would be the scale matrix and the degrees of freedom.
+#' @param ... Arguments to be passed to \code{bs()}.
 #' @return An object of class "nof1.data" that is used to run the model using \code{\link{nof1.run}} is a list 
 #' containing 
 #' \item{Y}{Outcome}
@@ -52,10 +56,10 @@
 # @param baseline baseline Treatment name. This serves as a baseline/placebo when comparing different treatments.
 # \item{baseline}{Baseline variable}
 nof1.data <- function(Y, Treat, response = NULL, ncat = NULL, 
-                      bs.trend = F, y.time = NULL, knots.bt.block = NULL, block.no = NULL,
+                      bs.trend = F, y.time = NULL, knots.bt.block = NULL, block.no = NULL, bs.df = NULL,
                       corr.y = F,
                       alpha.prior = NULL, beta.prior = NULL, eta.prior = NULL, dc.prior = NULL, c1.prior = NULL,
-                      rho.prior = NULL, hy.prior = NULL){
+                      rho.prior = NULL, hy.prior = NULL, ...){
 
   if(response == "ordinal"){
     if(is.null(ncat)){
@@ -102,9 +106,14 @@ nof1.data <- function(Y, Treat, response = NULL, ncat = NULL,
       knots <- cent.y.time[cumsum(rle(block.no)$lengths)]
       # remove knot at the end of last block
       knots <- knots[-length(knots)]
+      bs.design.matrix <- bs(cent.y.time, knots = knots, ...)
+      
+    } else {
+      
+      bs.design.matrix <- bs(cent.y.time, df = bs.df, ...)
     }
     
-    bs.design.matrix <- bs(cent.y.time, knots = knots, intercept = FALSE)
+    
     nof1$bs_df <- ncol(bs.design.matrix)
     
     # Save the columns in the bs.design.matrix in nof1 as Treat_*

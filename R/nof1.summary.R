@@ -103,6 +103,8 @@ summarize_nof1 <- function(result, alpha = 0.05){
 #' @param overlay.with.model Whether or not the model prediction should be plotted. The default is \code{F}.
 #' @param plot.by.treat Whether or not the measurements should be plotted in different panels by treatment.
 #' The default is \code{T}.
+#' @param trend.only Indicator for whether or not a trend-only line should be plotted when overlay with a model 
+#' adjusted for trend. Option when \code{overlay.with.model = TRUE} and the fitted model adjusts for trend.
 #' @param trial.start Start time of the trial specified with \code{timestamp.format}.
 #' @param trial.end End time of the trial specified with \code{timestamp.format}.
 #' @param timestamp.format Format of the \code{trial.start} and \code{trial.end}.
@@ -121,7 +123,7 @@ summarize_nof1 <- function(result, alpha = 0.05){
 # @param y.name used to label y-axis outcome variable
 # @param normal.response.range the range of the outcome if continuous; a vector of minimum and maximum
 time_series_plot <- function(result, 
-                             overlay.with.model = F, plot.by.treat = T,
+                             overlay.with.model = F, plot.by.treat = T, trend.only = F, 
                              trial.start = NULL, trial.end = NULL, timestamp.format = NULL){
   
   if (!is.null(trial.start)){
@@ -145,16 +147,14 @@ time_series_plot <- function(result,
   if (result$nof1$response %in% c("normal", "poisson")) {
     
     if (plot.by.treat){
-      fig <- ggplot(data, aes(x = time, Y, color = Treatment)) + 
+      fig <- ggplot(data[!is.na(data$Treatment),], aes(x = time, Y, color = Treatment)) + 
         geom_point() +
         facet_wrap(. ~ Treatment) + 
-        theme_bw() + 
-        scale_color_discrete(na.translate = FALSE)
+        theme_bw() 
     } else{
-      fig <- ggplot(data, aes(x = time, Y, color = Treatment)) + 
+      fig <- ggplot(data[!is.na(data$Treatment),], aes(x = time, Y, color = Treatment)) + 
         geom_point() + 
-        theme_bw() + 
-        scale_color_discrete(na.translate = FALSE)
+        theme_bw() 
     }
     
     if (overlay.with.model) {
@@ -176,34 +176,48 @@ time_series_plot <- function(result,
         samples <- do.call(rbind, result$samples)
         col.bs  <- paste0("eta_", 1:result$nof1$bs_df) 
         median.eta <- apply(samples[, col.bs], 2, median)
+        data$trend <- 0
         
         for (i in 1:result$nof1$bs_df) {
           bs.name <- paste0("bs", i)
           data <- data %>%
             mutate(model = model + median.eta[i] * result$nof1[[bs.name]])
+          data <- data %>%
+            mutate(trend = trend + median.eta[i] * result$nof1[[bs.name]])
         }
 
+        if (trend.only) {
+          fig <- fig + 
+            geom_line(data = data, aes(x = time, y = trend), linetype = 2, color = "grey")
+        }
       }
-      
+
       trt.lth <- rle(as.vector(data$Treatment))$length
       
-      fig <- fig + 
-        geom_line(data = data[1:cumsum(trt.lth)[1], ],
-                  aes(x = time, y = model, linetype = "Fitted model", color = Treatment))
-                  # color = brewer.pal(7, "Set1")[which(levels(data$Treatment) ==  data$Treatment[1])])
-      for (i in 2:length(trt.lth)){
+      if (trt.lth[1] != 1) {
         fig <- fig + 
-          geom_line(data = data[(cumsum(trt.lth)[i-1]+1):cumsum(trt.lth)[i], ],
+          geom_line(data = data[1:cumsum(trt.lth)[1], ],
+                    aes(x = time, y = model, linetype = "Fitted model", color = Treatment))
+        # color = brewer.pal(7, "Set1")[which(levels(data$Treatment) ==  data$Treatment[1])])
+      }
+      
+      trt.lth.non1 <- which(trt.lth != 1)
+      trt.lth.non1 <- trt.lth.non1[trt.lth.non1 != 1]
+      
+      for (i in 1:length(trt.lth.non1)){
+        fig <- fig + 
+          geom_line(data = data[(cumsum(trt.lth)[trt.lth.non1[i]-1]+1):(cumsum(trt.lth)[trt.lth.non1[i]]), ],
                     aes(x = time, y = model, linetype = "Fitted model", color = Treatment))
                     # color = brewer.pal(7, "Set1")[which(levels(data$Treatment) ==  data$Treatment[cumsum(trt.lth)[i]])]
       }
       
       fig <- fig + 
         scale_linetype(guide = FALSE)
-        
+
     }
+    
     fig <- fig + 
-      scale_color_brewer(palette = "Set1")
+      scale_color_brewer(palette = "Set1", na.translate = FALSE)
 
   } else { # other than normal, poisson
     
