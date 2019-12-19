@@ -28,6 +28,7 @@ summarize_nof1 <- function(result, alpha = 0.05){
   samples    <- do.call(rbind, result$samples)
   response   <- result$nof1$response
   
+  n            <- NULL
   raw.y.mean   <- NULL
   raw.y.median <- NULL
   post.coef.mean   <- NULL
@@ -38,6 +39,8 @@ summarize_nof1 <- function(result, alpha = 0.05){
   post.y.ci    <- NULL
   
   for (i in treat.name){
+    
+    n <- c(n, sum(!is.na(result$nof1$Y[result$nof1$Treat == i])))
     raw.y.mean   <- c(raw.y.mean, mean(result$nof1$Y[result$nof1$Treat == i], na.rm = TRUE))
     raw.y.median <- c(raw.y.median, median(result$nof1$Y[result$nof1$Treat == i], na.rm = TRUE))
     
@@ -54,7 +57,7 @@ summarize_nof1 <- function(result, alpha = 0.05){
     post.y.ci    <- rbind(post.y.ci, quantile(post.y, c(alpha/2, 1-alpha/2)))
   }
   
-  names(raw.y.mean) <- names(raw.y.median) <- names(post.coef.mean) <- names(post.coef.median) <- names(post.y.mean) <- names(post.y.median) <- treat.name
+  names(n) <- names(raw.y.mean) <- names(raw.y.median) <- names(post.coef.mean) <- names(post.coef.median) <- names(post.y.mean) <- names(post.y.median) <- treat.name
   rownames(post.coef.ci) <- rownames(post.y.ci) <- treat.name
   
   comp.treat.name <- t(utils::combn(treat.name, 2))
@@ -70,7 +73,7 @@ summarize_nof1 <- function(result, alpha = 0.05){
                                   quantile(post.coef.2 - post.coef.1, c(alpha/2, 0.5, 1-alpha/2)))
     
     p.comp.coef.greater.0 <- c(p.comp.coef.greater.0,
-                                mean((post.coef.2 - post.coef.1) > 0))
+                               mean((post.coef.2 - post.coef.1) > 0))
     # The following does not make sense for outcome other than normal
     # post.y.1 <- link_function(post.coef.1, response)
     # post.y.2 <- link_function(post.coef.2, response)
@@ -79,10 +82,11 @@ summarize_nof1 <- function(result, alpha = 0.05){
   }
   
   rownames(comp.treat.post.coef) <- paste(comp.treat.name[, 2], comp.treat.name[, 1], sep = "_minus_")
-    # rownames(comp.treat.post.y) <- 
+  # rownames(comp.treat.post.y) <- 
   names(p.comp.coef.greater.0)  <- paste(comp.treat.name[, 2], comp.treat.name[, 1], sep = "_minus_")
   
-  summ <- list(raw.y.mean   = raw.y.mean, 
+  summ <- list(n            = n,
+               raw.y.mean   = raw.y.mean, 
                raw.y.median = raw.y.median,
                post.coef.mean   = post.coef.mean,
                post.coef.median = post.coef.median,
@@ -126,136 +130,115 @@ time_series_plot <- function(result,
                              overlay.with.model = F, plot.by.treat = T, trend.only = F, 
                              trial.start = NULL, trial.end = NULL, timestamp.format = NULL){
   
-  if (!is.null(trial.start)){
+  if (!is.null(trial.start)){ 
     
     trial.start <- as.Date(trial.start, timestamp.format)
     trial.end   <- as.Date(trial.end, timestamp.format)
     
     time <- seq(trial.start, trial.end, length = length(result$nof1$Y))
-      
+    
     data <- data.frame(Y = as.numeric(result$nof1$Y), 
                        Treatment = gsub("\\_", " ", result$nof1$Treat), 
                        time = time)
-
+    
   } else {
     data <- data.frame(Y = as.numeric(result$nof1$Y), 
                        Treatment = gsub("\\_", " ", result$nof1$Treat), 
                        time = 1:length(result$nof1$Y))
   }
-
+  
+  data$model <- 0
+  treat.name <- result$nof1$Treat.name
+  col.treat   <- paste0("beta_", treat.name)
+  samples    <- do.call(rbind, result$samples)
+  median.beta <- apply(samples[, col.treat], 2, median)
+  
+  treat.name.xundsc <- gsub("\\_", " ", treat.name)
+  
+  # first add in treatment specific intercept
+  for (i in 1:length(treat.name)){
+    data <- data %>%
+      mutate(model = model + median.beta[i] * (Treatment == treat.name.xundsc[i]))
+  }
+  
+  # if there is trend, add in trend
+  if (result$nof1$bs.trend) {
+    samples <- do.call(rbind, result$samples)
+    col.bs  <- paste0("eta_", 1:result$nof1$bs_df) 
+    median.eta <- apply(samples[, col.bs], 2, median)
+    data$trend <- 0
+    
+    for (i in 1:result$nof1$bs_df) {
+      bs.name <- paste0("bs", i)
+      data <- data %>%
+        mutate(model = model + median.eta[i] * result$nof1[[bs.name]])
+      data <- data %>%
+        mutate(trend = trend + median.eta[i] * result$nof1[[bs.name]])
+    }
+  }
+  
   # Now only normal has been checked
-  if (result$nof1$response %in% c("normal", "poisson")) {
+  if (plot.by.treat){
+    fig <- ggplot(data[!is.na(data$Treatment),], aes(x = time, Y, color = Treatment)) + 
+      geom_point() +
+      facet_wrap(. ~ Treatment) + 
+      theme_bw() 
+  } else{
+    fig <- ggplot(data[!is.na(data$Treatment),], aes(x = time, Y, color = Treatment)) + 
+      geom_point() + 
+      theme_bw() 
+  }
+  
+  if (overlay.with.model) {
     
-    if (plot.by.treat){
-      fig <- ggplot(data[!is.na(data$Treatment),], aes(x = time, Y, color = Treatment)) + 
-        geom_point() +
-        facet_wrap(. ~ Treatment) + 
-        theme_bw() 
-    } else{
-      fig <- ggplot(data[!is.na(data$Treatment),], aes(x = time, Y, color = Treatment)) + 
-        geom_point() + 
-        theme_bw() 
-    }
+    trt.lth <- rle(as.vector(data$Treatment))$length
     
-    if (overlay.with.model) {
-      
-      data$model <- 0
-      treat.name <- result$nof1$Treat.name
-      col.treat   <- paste0("beta_", treat.name)
-      samples    <- do.call(rbind, result$samples)
-      median.beta <- apply(samples[, col.treat], 2, median)
-      
-      treat.name.xundsc <- gsub("\\_", " ", treat.name)
-      
-      for (i in 1:length(treat.name)){
-        data <- data %>%
-          mutate(model = model + median.beta[i] * (Treatment == treat.name.xundsc[i]))
-      }
-      
-      if (result$nof1$bs.trend) {
-        samples <- do.call(rbind, result$samples)
-        col.bs  <- paste0("eta_", 1:result$nof1$bs_df) 
-        median.eta <- apply(samples[, col.bs], 2, median)
-        data$trend <- 0
-        
-        for (i in 1:result$nof1$bs_df) {
-          bs.name <- paste0("bs", i)
-          data <- data %>%
-            mutate(model = model + median.eta[i] * result$nof1[[bs.name]])
-          data <- data %>%
-            mutate(trend = trend + median.eta[i] * result$nof1[[bs.name]])
-        }
-
-        if (trend.only) {
-          fig <- fig + 
-            geom_line(data = data, aes(x = time, y = trend), linetype = 2, color = "grey")
-        }
-      }
-
-      trt.lth <- rle(as.vector(data$Treatment))$length
-      
-      if (trt.lth[1] != 1) {
-        fig <- fig + 
-          geom_line(data = data[1:cumsum(trt.lth)[1], ],
-                    aes(x = time, y = model, linetype = "Fitted model", color = Treatment))
-        # color = brewer.pal(7, "Set1")[which(levels(data$Treatment) ==  data$Treatment[1])])
-      }
-      
-      trt.lth.non1 <- which(trt.lth != 1)
-      trt.lth.non1 <- trt.lth.non1[trt.lth.non1 != 1]
-      
-      for (i in 1:length(trt.lth.non1)){
-        fig <- fig + 
-          geom_line(data = data[(cumsum(trt.lth)[trt.lth.non1[i]-1]+1):(cumsum(trt.lth)[trt.lth.non1[i]]), ],
-                    aes(x = time, y = model, linetype = "Fitted model", color = Treatment))
-                    # color = brewer.pal(7, "Set1")[which(levels(data$Treatment) ==  data$Treatment[cumsum(trt.lth)[i]])]
-      }
-      
+    # plot the models by treatment periods
+    if (trt.lth[1] != 1) {
       fig <- fig + 
-        scale_linetype(guide = FALSE)
-
+        geom_line(data = data[1:cumsum(trt.lth)[1], ],
+                  aes(x = time, y = model, linetype = "Fitted model", color = Treatment))
+      # color = brewer.pal(7, "Set1")[which(levels(data$Treatment) ==  data$Treatment[1])])
     }
     
-    fig <- fig + 
-      scale_color_brewer(palette = "Set1", na.translate = FALSE)
-
-  } else { # other than normal, poisson
+    # find out length non 1 periods for plotting trends
+    trt.lth.non1 <- which(trt.lth != 1)
+    trt.lth.non1 <- trt.lth.non1[trt.lth.non1 != 1]
     
-    fig <- ggplot(data, aes(x=date, Y, fill = Treatment)) + 
-      geom_bar(stat = "identity")  + 
-      facet_grid(. ~ Treatment) + 
-      theme_bw() + 
-      theme(panel.grid.major = element_blank(), 
-            panel.grid.minor = element_blank(), 
-            axis.line        = element_line(colour = "black")) + 
-      geom_hline(data  = data2, 
-                 aes(yintercept = x, linetype = "Mean"), 
-                 color ="black") + 
-      scale_y_continuous(breaks = 0:nof1$ncat, 
-                         oob    = rescale_none, 
-                         label  = c("Low", rep("", length = nof1$ncat -1), "High")) +
-      scale_fill_manual(values = c("#adc2eb", "#ffb380")) + 
-      scale_linetype_manual(name   = "", 
-                            values = 1, 
-                            guide  = guide_legend(override.aes = list(color = c("black"))))
+    for (i in 1:length(trt.lth.non1)){
+      fig <- fig + 
+        geom_line(data = data[(cumsum(trt.lth)[trt.lth.non1[i]-1]+1):(cumsum(trt.lth)[trt.lth.non1[i]]), ],
+                  aes(x = time, y = model, color = Treatment))
+      # color = brewer.pal(7, "Set1")[which(levels(data$Treatment) ==  data$Treatment[cumsum(trt.lth)[i]])]
+    }
+    
+    # Add in a time trend only line if specified
+    if (trend.only) {
+      # n.color <- length(unique(data$Treatment[!is.na(data$Treatment)]))
+      # levels.legend <- c("Time trend", as.character(unique(data$Treatment[!is.na(data$Treatment)])))
+      fig <- fig + 
+        annotate(geom = "line", x = data$time, y = data$trend, linetype = "dashed", color = "grey")
+      # geom_line(data = data, aes(x = time, y = trend), linetype = "dashed", color = "grey") # +
+      # guides(color = guide_legend("title"), shape = guide_legend("title"),
+      #        linetype = guide_legend("title"))
+      # scale_color_manual(breaks = levels.legend[2:length(levels.legend)],
+      #                    values = cbbPalette[2:length(cbbPalette)],
+      #                    limits = levels.legend[2:length(levels.legend)]) +
+      # scale_linetype_manual(name   = "Fitted model", 
+      #                       breaks = levels.legend,
+      #                       values = c("dashed", rep("solid", n.color)),
+      #                       limits = levels.legend) +
+      # scale_shape_manual(breaks = levels.legend[2:length(levels.legend)],
+      #                    values = rep(16, n.color),
+      #                    limits = levels.legend[2:length(levels.legend)])
+      
+    } 
     
   }
   
-  # if (!is.null(x.name)){
-  #   fig <- fig + 
-  #     xlab(x.name) 
-  #     # theme(axis.title.x = element_blank())
-  # } 
-  # 
-  # if (!is.null(y.name)) {
-  #   fig <- fig +
-  #     ylab(y.name) 
-  # }
-  # 
-  # if (!is.null(title)){
-  #   fig <- fig + 
-  #     ggtitle(title)
-  # }
+  fig <- fig + 
+    scale_linetype(guide = FALSE) + 
+    scale_color_brewer(palette = "Set1", na.translate = FALSE)
   
   fig
 }
@@ -287,7 +270,7 @@ frequency_plot <- function(nof1, ...){
       scale_x_continuous(breaks = unique(data$Y),
                          label  = as.character(unique(data$Y))) + 
       theme_bw()  
-  
+    
   } else if(nof1$response %in% c("normal", "poisson")){
     
     data <- data.frame(Y = nof1$Y, Treat = nof1$Treat)
@@ -470,7 +453,7 @@ trt_eff_plot <- function(result.list, level = 0.95, ...){
       trt.eff <- data.frame(trt.eff)
       rownames(trt.eff)[nrow(trt.eff)] <- paste0(names(result.list)[i], ": ", tmp.compname)
     }
-  
+    
   }
   
   trt.eff.range <- range(trt.eff, 0)
