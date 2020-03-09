@@ -1,4 +1,4 @@
-Package: nof1gen
+Package: nof1ins
 Type: Package
 Title: N-of-1 study general analysis tool
 Version: 0.5.0
@@ -10,4 +10,4 @@ Description: A package for running analysis for N of 1 studies. Runs Bayesian li
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 6.1.1
+RoxygenNote: 7.0.2

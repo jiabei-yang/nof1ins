@@ -4,11 +4,26 @@
 \alias{nof1.data}
 \title{Make an N of 1 object containing data, priors, and a jags model file}
 \usage{
-nof1.data(Y, Treat, response = NULL, ncat = NULL, bs.trend = F,
-  y.time = NULL, knots.bt.block = NULL, block.no = NULL,
-  corr.y = F, alpha.prior = NULL, beta.prior = NULL,
-  eta.prior = NULL, dc.prior = NULL, c1.prior = NULL,
-  rho.prior = NULL, hy.prior = NULL)
+nof1.data(
+  Y,
+  Treat,
+  response = NULL,
+  ncat = NULL,
+  bs.trend = F,
+  y.time = NULL,
+  knots.bt.block = NULL,
+  block.no = NULL,
+  bs.df = NULL,
+  corr.y = F,
+  alpha.prior = NULL,
+  beta.prior = NULL,
+  eta.prior = NULL,
+  dc.prior = NULL,
+  c1.prior = NULL,
+  rho.prior = NULL,
+  hy.prior = NULL,
+  ...
+)
 }
 \arguments{
 \item{Y}{Outcome of the study. This should be a vector with \code{NA}'s included in time order.}
@@ -25,10 +40,14 @@ is \code{F}.}
 
 \item{y.time}{Parameter used for modeling splines. Time when the outcome is measured.}
 
-\item{knots.bt.block}{parameter used for modeling splines. Currently, program only supports knots 
-at the end of each block except for the last block if \code{T}.}
+\item{knots.bt.block}{parameter used for modeling splines. Indicator for whether or not knots should be set
+at the end of each block except for the last block. If \code{TRUE}, user should then specify \code{block.no};
+if \code{FALSE}, user should then specify \code{bs.df}.}
 
-\item{block.no}{block indicator used for modeling splines. Block number with the same length as the outcome.}
+\item{block.no}{Block number used for modeling splines for the setting where the knots are set at the end 
+of each block. Block number with the same length as the outcome.}
+
+\item{bs.df}{Degrees of freedom for modeling splines when knots are not set at the end of each block.}
 
 \item{corr.y}{Indicator for whether the correlation among measurements shoule be modeled. The default is 
 \code{F}.}
@@ -52,6 +71,8 @@ where first element should be the distribution (one of dunif, dgamma, dhnorm, dw
 two are the parameters associated with the distribution. For example, list("dunif", 0, 5) give 
 uniform prior with lower bound 0 and upper bound 5 for the heterogeneity parameter. For wishart 
 distribution, the last two parameter would be the scale matrix and the degrees of freedom.}
+
+\item{...}{Arguments to be passed to \code{bs()}.}
 }
 \value{
 An object of class "nof1.data" that is used to run the model using \code{\link{nof1.run}} is a list 

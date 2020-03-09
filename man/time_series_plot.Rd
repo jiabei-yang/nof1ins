@@ -4,8 +4,16 @@
 \alias{time_series_plot}
 \title{time series plot across different interventions}
 \usage{
-time_series_plot(result, overlay.with.model = F, plot.by.treat = T,
-  trial.start = NULL, trial.end = NULL, timestamp.format = NULL)
+time_series_plot(
+  result,
+  overlay.with.model = F,
+  plot.by.treat = T,
+  trend.only = F,
+  trial.start = NULL,
+  trial.end = NULL,
+  timestamp.format = NULL,
+  ...
+)
 }
 \arguments{
 \item{result}{Modeling result of class \code{nof1.result} produced by \code{nof1.run}.}
@@ -14,6 +22,9 @@ time_series_plot(result, overlay.with.model = F, plot.by.treat = T,
 
 \item{plot.by.treat}{Whether or not the measurements should be plotted in different panels by treatment.
 The default is \code{T}.}
+
+\item{trend.only}{Indicator for whether or not a trend-only line should be plotted when overlay with a model 
+adjusted for trend. Option when \code{overlay.with.model = TRUE} and the fitted model adjusts for trend.}
 
 \item{trial.start}{Start time of the trial specified with \code{timestamp.format}.}
 

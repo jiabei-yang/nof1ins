@@ -1,4 +1,4 @@
-# nof1gen (N-of-1 study general analysis tool)
+# nof1ins (N-of-1 study general analysis tool)
 
 This repo was created primarily to serve as an analysis tool for n-of-1 studies. Currently, the code is tested on the following outcomes and models, and the remaining models are under development or being tested.
 
@@ -13,8 +13,8 @@ This repo was created primarily to serve as an analysis tool for n-of-1 studies.
 
 ```{r}
 library(devtools)
-install_github("jiabei-yang/nof1gen", force = TRUE)
-library(nof1gen)
+install_github("jiabei-yang/nof1ins", force = TRUE)
+library(nof1ins)
 ```
 
 ## Prepare data

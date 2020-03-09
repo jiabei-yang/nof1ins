@@ -4,8 +4,14 @@
 \alias{nof1.normal.simulation}
 \title{Normal data simulation}
 \usage{
-nof1.normal.simulation(Base.size = 2, Treat.size = 8, prec = 0.5,
-  alpha = 50, beta_A = -3, beta_B = -1)
+nof1.normal.simulation(
+  Base.size = 2,
+  Treat.size = 8,
+  prec = 0.5,
+  alpha = 50,
+  beta_A = -3,
+  beta_B = -1
+)
 }
 \description{
 Simulating sample normal data

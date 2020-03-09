@@ -4,9 +4,16 @@
 \alias{nof1.run}
 \title{Run the model using the nof1 object}
 \usage{
-nof1.run(nof1, inits = NULL, n.chains = 3, max.run = 1e+05,
-  setsize = 10000, n.run = 50000, conv.limit = 1.05,
-  extra.pars.save = NULL)
+nof1.run(
+  nof1,
+  inits = NULL,
+  n.chains = 3,
+  max.run = 1e+05,
+  setsize = 10000,
+  n.run = 50000,
+  conv.limit = 1.05,
+  extra.pars.save = NULL
+)
 }
 \arguments{
 \item{nof1}{nof1 object created from \code{\link{nof1.data}} function}

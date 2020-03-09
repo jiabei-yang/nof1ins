@@ -31,6 +31,7 @@ summarize_nof1 <- function(result, alpha = 0.05){
   n            <- NULL
   raw.y.mean   <- NULL
   raw.y.median <- NULL
+  raw.y.sd     <- NULL
   post.coef.mean   <- NULL
   post.coef.median <- NULL
   post.y.mean   <- NULL
@@ -43,6 +44,7 @@ summarize_nof1 <- function(result, alpha = 0.05){
     n <- c(n, sum(!is.na(result$nof1$Y[result$nof1$Treat == i])))
     raw.y.mean   <- c(raw.y.mean, mean(result$nof1$Y[result$nof1$Treat == i], na.rm = TRUE))
     raw.y.median <- c(raw.y.median, median(result$nof1$Y[result$nof1$Treat == i], na.rm = TRUE))
+    raw.y.sd     <- c(raw.y.sd, sd(result$nof1$Y[result$nof1$Treat == i], na.rm = TRUE))
     
     col.treat.name <- paste0("beta_", i)
     post.coef <- samples[, col.treat.name]
@@ -57,7 +59,7 @@ summarize_nof1 <- function(result, alpha = 0.05){
     post.y.ci    <- rbind(post.y.ci, quantile(post.y, c(alpha/2, 1-alpha/2)))
   }
   
-  names(n) <- names(raw.y.mean) <- names(raw.y.median) <- names(post.coef.mean) <- names(post.coef.median) <- names(post.y.mean) <- names(post.y.median) <- treat.name
+  names(n) <- names(raw.y.mean) <- names(raw.y.median) <- names(raw.y.sd) <- names(post.coef.mean) <- names(post.coef.median) <- names(post.y.mean) <- names(post.y.median) <- treat.name
   rownames(post.coef.ci) <- rownames(post.y.ci) <- treat.name
   
   comp.treat.name <- t(utils::combn(treat.name, 2))
@@ -88,6 +90,7 @@ summarize_nof1 <- function(result, alpha = 0.05){
   summ <- list(n            = n,
                raw.y.mean   = raw.y.mean, 
                raw.y.median = raw.y.median,
+               raw.y.sd     = raw.y.sd,
                post.coef.mean   = post.coef.mean,
                post.coef.median = post.coef.median,
                post.y.mean   = post.y.mean,
@@ -128,7 +131,8 @@ summarize_nof1 <- function(result, alpha = 0.05){
 # @param normal.response.range the range of the outcome if continuous; a vector of minimum and maximum
 time_series_plot <- function(result, 
                              overlay.with.model = F, plot.by.treat = T, trend.only = F, 
-                             trial.start = NULL, trial.end = NULL, timestamp.format = NULL){
+                             trial.start = NULL, trial.end = NULL, timestamp.format = NULL,
+                             ...){
   
   if (!is.null(trial.start)){ 
     
@@ -180,12 +184,12 @@ time_series_plot <- function(result,
   # Now only normal has been checked
   if (plot.by.treat){
     fig <- ggplot(data[!is.na(data$Treatment),], aes(x = time, Y, color = Treatment)) + 
-      geom_point() +
+      geom_point(...) +
       facet_wrap(. ~ Treatment) + 
       theme_bw() 
   } else{
     fig <- ggplot(data[!is.na(data$Treatment),], aes(x = time, Y, color = Treatment)) + 
-      geom_point() + 
+      geom_point(...) + 
       theme_bw() 
   }
   
@@ -461,8 +465,20 @@ trt_eff_plot <- function(result.list, level = 0.95, ...){
     mutate(`Treatment Comparison` = rownames(trt.eff))
   colnames(trt.eff)[1:3] <- c("lower", "median", "upper")
   
-  ggplot(trt.eff, aes(y = median, x = `Treatment Comparison`, color  = `Treatment Comparison`)) + 
-    geom_point() +
+  # order the results as input list
+  trt.eff <- trt.eff %>%
+    mutate(`Treatment Comparison` = factor(`Treatment Comparison`))
+  lvl.comp <- NULL
+  for (i in 1:length(result.list)){
+    lvl.comp <- c(lvl.comp,
+                  levels(trt.eff$`Treatment Comparison`)[grep(names(result.list)[i], levels(trt.eff$`Treatment Comparison`))])
+  }
+  trt.eff <- trt.eff %>%
+    mutate(`Treatment Comparison` = factor(`Treatment Comparison`, levels = lvl.comp))
+  
+  # ggplot(trt.eff, aes(y = median, x = `Treatment Comparison`, color  = `Treatment Comparison`)) + 
+  ggplot(trt.eff, aes(y = median, x = `Treatment Comparison`)) + 
+    geom_point(...) +
     geom_errorbar(aes(ymin = lower, ymax = upper), ...) +
     # scale_y_log10(breaks = ticks, labels = ticks) +
     geom_hline(yintercept = 0, linetype = 2, color = "gray") +
@@ -514,6 +530,17 @@ probability_barplot <- function(result.list){
     gather(trt, probability, X1:X2) %>%
     mutate(trt = ifelse(trt == "X1", trt.1, trt.2)) %>%
     dplyr::select(-c(trt.1, trt.2))
+  
+  # order the results as input list
+  probability <- probability %>%
+    mutate(result = factor(result))
+  lvl.comp <- NULL
+  for (i in 1:length(result.list)){
+    lvl.comp <- c(lvl.comp,
+                  levels(probability$result)[grep(names(result.list)[i], levels(probability$result))])
+  }
+  probability <- probability %>%
+    mutate(result = factor(result, levels = lvl.comp))
   
   ggplot(probability, aes(fill = factor(trt), y = probability, x = result)) + 
     geom_bar(stat="identity", position="fill") + 
