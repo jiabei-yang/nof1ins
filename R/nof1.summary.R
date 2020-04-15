@@ -107,6 +107,7 @@ summarize_nof1 <- function(result, alpha = 0.05){
 #' time series plot across different interventions
 #'
 #' @param result Modeling result of class \code{nof1.result} produced by \code{nof1.run}.
+#' @param baseline.treat.name Name for reference treatment. Default is \code{NULL}.
 #' @param plot.by.treat Whether or not the measurements should be plotted in different panels by treatment.
 #' The default is \code{T}.
 #' @param overlay.with.model Whether or not the model prediction should be plotted. The default is \code{F}.
@@ -220,11 +221,15 @@ time_series_plot <- function(result, baseline.treat.name = NULL,
       data.long <- data.long %>%
         mutate(model.treat.name = gsub("model_", "", model.treat.name)) %>%
         mutate(model.treat.name = gsub("\\_", " ", model.treat.name))
-      data.long <- data.long %>%
-        mutate(model.treat.name = factor(model.treat.name))
-      data.long <- data.long %>%
-        mutate(model.treat.name = factor(model.treat.name, levels(data.long$model.treat.name)[c(which(levels(data.long$model.treat.name) == baseline.treat.name),
-                                                                                                which(levels(data.long$model.treat.name) != baseline.treat.name))]))
+
+      # modify the reference level for lines
+      if (!is.null(baseline.treat.name)) {
+        data.long <- data.long %>%
+          mutate(model.treat.name = factor(model.treat.name))
+        data.long <- data.long %>%
+          mutate(model.treat.name = factor(model.treat.name, levels(data.long$model.treat.name)[c(which(levels(data.long$model.treat.name) == baseline.treat.name),
+                                                                                                  which(levels(data.long$model.treat.name) != baseline.treat.name))]))
+      }
 
       for (i in 1:n.treat) {
         fig <- fig +
