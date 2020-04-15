@@ -129,7 +129,7 @@ summarize_nof1 <- function(result, alpha = 0.05){
 # @param x.name used to label x-axis time variable. Default is "time".
 # @param y.name used to label y-axis outcome variable
 # @param normal.response.range the range of the outcome if continuous; a vector of minimum and maximum
-time_series_plot <- function(result,
+time_series_plot <- function(result, baseline.treat.name = NULL,
                              plot.by.treat = T, overlay.with.model = F, predict.model = F,
                              trial.start = NULL, trial.end = NULL, timestamp.format = NULL,
                              ...){
@@ -192,6 +192,13 @@ time_series_plot <- function(result,
     data[, grep("model_", colnames(data))] <- data[, grep("model_", colnames(data))] + data$trend
   }
 
+  # modify the reference level
+  if (!is.null(baseline.treat.name)) {
+    data <- data %>%
+      mutate(Treatment = factor(Treatment, levels(data$Treatment)[c(which(levels(data$Treatment) == baseline.treat.name),
+                                                                    which(levels(data$Treatment) != baseline.treat.name))]))
+  }
+
   # Now only normal has been checked
   if (plot.by.treat){
     fig <- ggplot(data[!is.na(data$Treatment),], aes(x = time, Y, color = Treatment)) +
@@ -213,6 +220,12 @@ time_series_plot <- function(result,
       data.long <- data.long %>%
         mutate(model.treat.name = gsub("model_", "", model.treat.name)) %>%
         mutate(model.treat.name = gsub("\\_", " ", model.treat.name))
+      data.long <- data.long %>%
+        mutate(model.treat.name = factor(model.treat.name))
+      data.long <- data.long %>%
+        mutate(model.treat.name = factor(model.treat.name, levels(data.long$model.treat.name)[c(which(levels(data.long$model.treat.name) == baseline.treat.name),
+                                                                                                which(levels(data.long$model.treat.name) != baseline.treat.name))]))
+
       for (i in 1:n.treat) {
         fig <- fig +
           geom_line(data = data.long, aes(x = time, y = model.treat, color = model.treat.name, linetype = model.treat.name))
@@ -249,8 +262,10 @@ time_series_plot <- function(result,
 
   }
 
+  cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
   fig <- fig +
-    scale_color_brewer(palette = "Set1", na.translate = FALSE)
+    scale_color_manual(values = cbPalette)
 
   fig
 }
