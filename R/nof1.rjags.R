@@ -17,64 +17,84 @@ nof1.normal.rjags <- function(nof1){
 
   with(nof1, {
 
-  code <- paste0("model{")
-  
-  code <- paste0(code,
-                 "\n\tfor (i in 1:", nobs, ") {")
-  
-  if (corr.y) {
-    code <- paste0(code, 
-                   "\n\t\tY[i] ~ dnorm(m[i], prec*((1 - equals(i, 1)) * 1 + equals(i, 1) * (1-rho^2)))",
-                   "\n\t\tm[i] <- mu[i] + rho * e[i]")
-  } else {
-    code <- paste0(code,
-                   "\n\t\tY[i] ~ dnorm(m[i], prec)",
-                   "\n\t\tm[i] <- mu[i]")
-  }
-
-  code <- paste0(code,
-                 "\n\t\tmu[i] <- beta_", Treat.name[1], "*Treat_", Treat.name[1], "[i]")
-  
-  if (length(Treat.name) > 1){
-    for(i in Treat.name[2:length(Treat.name)]){
-      code <- paste0(code, " + beta_", i, "*Treat_", i, "[i]")
-    }
-  }
-  
-  if (bs.trend){
-    for (i in 1:bs_df){
-      code <- paste0(code, " + eta_", i, "*bs", i, "[i]")
-    }
-  }
-  
-  code <- paste0(code, 
-                 "\n\t}")
-  
-  if (corr.y) {
-    code <- paste0(code, 
-           "\n",
-           "\n\te[1] <- 0",
-           "\n\tfor (i in 2:", nobs, ") {",
-           "\n\t\te[i] <- (1 - equals(i, 1)) * (Y[i-1] - mu[i-1]) + equals(i, 1) * 0",
-           "\n\t}")
+    code <- paste0("model{")
 
     code <- paste0(code,
-                   "\n\trho ~ ", rho.prior[[1]], "(", rho.prior[[2]], ", ", rho.prior[[3]], ")")
-  } 
-  
-  for(i in Treat.name){
-    code <- paste0(code, 
-                   "\n\tbeta_", i, " ~ ", beta.prior[[1]], "(", beta.prior[[2]], ", ", beta.prior[[3]], ")")
-  }
+                   "\n\tfor (i in 1:", nobs, ") {")
 
-  if (bs.trend){
-    for (i in 1:bs_df){
-      code <- paste0(code, "\n\teta_", i, " ~ ", eta.prior[[1]], "(", eta.prior[[2]], ", ", eta.prior[[3]], ")")
+    if (corr.y) {
+      code <- paste0(code,
+                     "\n\t\tY[i] ~ dnorm(m[i], prec*((1 - equals(i, 1)) * 1 + equals(i, 1) * (1-rho^2)))",
+                     "\n\t\tm[i] <- mu[i] + rho * e[i]")
+    } else {
+      code <- paste0(code,
+                     "\n\t\tY[i] ~ dnorm(m[i], prec)",
+                     "\n\t\tm[i] <- mu[i]")
     }
-  }
 
-  code <- paste0(code, nof1.hy.prior.rjags(hy.prior), "\n}")
-  return(code)
+    code <- paste0(code,
+                   "\n\t\tmu[i] <- beta_", Treat.name[1], "*Treat_", Treat.name[1], "[i]")
+
+    if (length(Treat.name) > 1){
+      for(i in Treat.name[2:length(Treat.name)]){
+        code <- paste0(code, " + beta_", i, "*Treat_", i, "[i]")
+      }
+    }
+
+    if (bs.trend){
+      for (i in 1:bs_df){
+        code <- paste0(code, " + eta_", i, "*bs", i, "[i]")
+      }
+    }
+
+    code <- paste0(code,
+                   "\n\t}")
+
+    if (corr.y) {
+      code <- paste0(code,
+                     "\n",
+                     "\n\te[1] <- 0",
+                     "\n\tfor (i in 2:", nobs, ") {",
+                     "\n\t\te[i] <- (1 - equals(i, 1)) * (Y[i-1] - mu[i-1]) + equals(i, 1) * 0",
+                     "\n\t}")
+
+      code <- paste0(code,
+                     "\n\trho ~ ", rho.prior[[1]], "(", rho.prior[[2]], ", ", rho.prior[[3]], ")")
+    }
+
+    for(i in Treat.name){
+      code <- paste0(code,
+                     "\n\tbeta_", i, " ~ ", beta.prior[[1]], "(", beta.prior[[2]], ", ", beta.prior[[3]], ")")
+
+      # Truncated normal distribution for beta's
+      if (length(beta.prior) > 3) {
+
+        if (!is.na(beta.prior[[4]])) {
+          code <- paste0(code,
+                         " T(", beta.prior[[4]], ",")
+        } else {
+          code <- paste0(code,
+                         " T(,")
+        }
+
+        if(!is.na(beta.prior[[5]])) {
+          code <- paste0(code,
+                         beta.prior[[5]], ")")
+        } else {
+          code <- paste0(code,
+                         ")")
+        }
+      } # if (length(beta.prior) > 3) {
+    } #  for(i in Treat.name){
+
+    if (bs.trend){
+      for (i in 1:bs_df){
+        code <- paste0(code, "\n\teta_", i, " ~ ", eta.prior[[1]], "(", eta.prior[[2]], ", ", eta.prior[[3]], ")")
+      }
+    }
+
+    code <- paste0(code, nof1.hy.prior.rjags(hy.prior), "\n}")
+    return(code)
   })
 }
 
@@ -84,40 +104,40 @@ nof1.binomial.rjags <- function(nof1){
 
   with(nof1, {
 
-  code <- paste0("model{")
-  code <- paste0(code,
-                 "\n\tfor (i in 1:", nobs, ") {",
-                 "\n\t\tlogit(p[i]) <- beta_", Treat.name[1], "*Treat_", Treat.name[1], "[i]")
+    code <- paste0("model{")
+    code <- paste0(code,
+                   "\n\tfor (i in 1:", nobs, ") {",
+                   "\n\t\tlogit(p[i]) <- beta_", Treat.name[1], "*Treat_", Treat.name[1], "[i]")
 
-  if (length(Treat.name) > 1){
-    for(i in Treat.name[2:length(Treat.name)]){
-      code <- paste0(code, " + beta_", i, "*Treat_", i, "[i]")
+    if (length(Treat.name) > 1){
+      for(i in Treat.name[2:length(Treat.name)]){
+        code <- paste0(code, " + beta_", i, "*Treat_", i, "[i]")
+      }
     }
-  }
 
-  # if(!is.null(knots)){
-  #   for(j in 1:ncol(BS)){
-  #     code <- paste0(code, " + gamma", j, "* BS[i,", j, "]")
-  #   }
-  # }
+    # if(!is.null(knots)){
+    #   for(j in 1:ncol(BS)){
+    #     code <- paste0(code, " + gamma", j, "* BS[i,", j, "]")
+    #   }
+    # }
 
-  code <- paste0(code,
-                 "\n\t\tY[i] ~ dbern(p[i])",
-                 "\n\t}")
-                 # "\n\talpha ~ ", alpha.prior[[1]], "(", alpha.prior[[2]], ",", alpha.prior[[3]], ")")
+    code <- paste0(code,
+                   "\n\t\tY[i] ~ dbern(p[i])",
+                   "\n\t}")
+    # "\n\talpha ~ ", alpha.prior[[1]], "(", alpha.prior[[2]], ",", alpha.prior[[3]], ")")
 
-  for(i in Treat.name){
-    code <- paste0(code, "\n\tbeta_", i, " ~ ", beta.prior[[1]], "(", beta.prior[[2]], ",", beta.prior[[3]], ")")
-  }
+    for(i in Treat.name){
+      code <- paste0(code, "\n\tbeta_", i, " ~ ", beta.prior[[1]], "(", beta.prior[[2]], ",", beta.prior[[3]], ")")
+    }
 
-  # if(!is.null(knots)){
-  #   for(j in 1:ncol(BS)){
-  #     code <- paste0(code, "\n\tgamma", j, " ~ ", gamma.prior[[1]], "(", gamma.prior[[2]], ",", gamma.prior[[3]], ")")
-  #   }
-  # }
-  code <- paste0(code, "\n}")
-  
-  return(code)
+    # if(!is.null(knots)){
+    #   for(j in 1:ncol(BS)){
+    #     code <- paste0(code, "\n\tgamma", j, " ~ ", gamma.prior[[1]], "(", gamma.prior[[2]], ",", gamma.prior[[3]], ")")
+    #   }
+    # }
+    code <- paste0(code, "\n}")
+
+    return(code)
   })
 
 }
@@ -128,96 +148,185 @@ nof1.poisson.rjags <- function(nof1){
 
   with(nof1, {
 
-  code <- paste0("model{")
-  code <- paste0(code,
-                 "\n\tfor (i in 1:", nobs, ") {",
-                 "\n\t\tlog(lambda[i]) <- beta_", Treat.name[1], "*Treat_", Treat.name[1], "[i]")
+    code <- paste0("model{")
+    code <- paste0(code,
+                   "\n\tfor (i in 1:", nobs, ") {",
+                   "\n\t\tlog(lambda[i]) <- beta_", Treat.name[1], "*Treat_", Treat.name[1], "[i]")
 
-  if (length(Treat.name) > 1){
-    for(i in Treat.name[2:length(Treat.name)]){
-      code <- paste0(code, " + beta_", i, "*Treat_", i, "[i]")
+    if (length(Treat.name) > 1){
+      for(i in Treat.name[2:length(Treat.name)]){
+        code <- paste0(code, " + beta_", i, "*Treat_", i, "[i]")
+      }
     }
-  }
-  
-  if (bs.trend){
-    for (i in 1:bs_df){
-      code <- paste0(code, " + eta_", i, "*bs", i, "[i]")
+
+    if (bs.trend){
+      for (i in 1:bs_df){
+        code <- paste0(code, " + eta_", i, "*bs", i, "[i]")
+      }
     }
-  }
 
-  code <- paste0(code,
-                 "\n\t\tY[i] ~ dpois(lambda[i])",
-                 "\n\t}")
-  #               "\n\talpha ~ ", alpha.prior[[1]], "(", alpha.prior[[2]], ",", alpha.prior[[3]], ")")
+    code <- paste0(code,
+                   "\n\t\tY[i] ~ dpois(lambda[i])",
+                   "\n\t}")
+    #               "\n\talpha ~ ", alpha.prior[[1]], "(", alpha.prior[[2]], ",", alpha.prior[[3]], ")")
 
-  for(i in Treat.name){
-    code <- paste0(code, "\n\tbeta_", i, " ~ ", beta.prior[[1]], "(", beta.prior[[2]], ",", beta.prior[[3]], ")")
-  }
-
-  if (bs.trend){
-    for (i in 1:bs_df){
-      code <- paste0(code, "\n\teta_", i, " ~ ", eta.prior[[1]], "(", eta.prior[[2]], ", ", eta.prior[[3]], ")")
+    for(i in Treat.name){
+      code <- paste0(code, "\n\tbeta_", i, " ~ ", beta.prior[[1]], "(", beta.prior[[2]], ",", beta.prior[[3]], ")")
     }
-  }
-  
-  code <- paste0(code, "\n}")
-  return(code)
+
+    if (bs.trend){
+      for (i in 1:bs_df){
+        code <- paste0(code, "\n\teta_", i, " ~ ", eta.prior[[1]], "(", eta.prior[[2]], ", ", eta.prior[[3]], ")")
+      }
+    }
+
+    code <- paste0(code, "\n}")
+    return(code)
   })
 }
 
 
 nof1.ordinal.rjags <- function(nof1){
 
-  with(nof1, {
+  code <- paste0("model{\n")
+  code <- paste0(code,
+                 "\tfor (i in 1:", nof1$nobs, ") {\n")
 
-    code <- paste0("model{")
-    code <- paste0(code,
-                   "\n\tfor (i in 1:", nobs, ") {",
-                   "\n\t\tY[i] ~ dcat(p[i,])",
-                   "\n\t\tp[i,1] <- 1 - Q[i,1]",
-                   "\n\t\tfor(r in 2:", ncat-1, ") {",
-                   "\n\t\t\tp[i,r] <- Q[i,r-1] - Q[i,r]",
-                   "\n\t\t}",
-                   "\n\t\tp[i,", ncat, "] <- Q[i,", ncat-1, "]",
-                   "\n\t\tfor(r in 1:", ncat-1, ") {",
-                   "\n\t\t\tlogit(Q[i,r]) <- -c[r]") # + epsilon[i]")
+  code <- paste0(code,
+                 "\t\tfor (j in 2:", nof1$ncat, ") {\n")
 
-    for(i in Treat.name){
-      code <- paste0(code, " + beta_", i, "*Treat_", i, "[i]")
-    }
-
-    # if(!is.null(knots)){
-    #   for(j in 1:ncol(BS)){
-    #     code <- paste0(code, " + gamma", j, "* BS[i,", j, "]")
-    #   }
-    # }
+  if (nof1$ord.model == "cumulative") {
 
     code <- paste0(code,
-                   "\n\t\t}",
-                   "\n\t}",
-                   "\n\tfor(i in 2:", ncat-1, ") {",
-                   "\n\t\tdc[i] ~ ", dc.prior[[1]], "(", dc.prior[[2]], ",", dc.prior[[3]], ")",
-                   "\n\t}",
-                   "\n\tc[1] <- dc[1]",
-                   "\n\tfor (i in 2:", ncat-1, ") {",
-                   "\n\t\tc[i] <- c[i-1] + dc[i]",
-                   "\n\t}",
-                   "\n\tdc[1] ~ ", c1.prior[[1]], "(", c1.prior[[2]], ",", c1.prior[[3]], ")")
-    
-    for(i in Treat.name){
-      code <- paste0(code, "\n\tbeta_", i, " ~ ", beta.prior[[1]], "(", beta.prior[[2]], ",", beta.prior[[3]], ")")
+                   "\t\t\tlogit(q[i, j-1]) <- alpha[j-1]")
+    for(Treat.name.i in 2:nof1$n.Treat){
+      code <- paste0(code,
+                     " + beta_", nof1$Treat.name[Treat.name.i], " * Treat_", nof1$Treat.name[Treat.name.i], "[i]")
     }
+    code <- paste0(code, "\n")
+    code <- paste0(code,
+                   "\t\t}\n")
 
-    # if(!is.null(knots)){
-    #   for(j in 1:ncol(BS)){
-    #     code <- paste0(code, "\n\tgamma", j, " ~ ", gamma.prior[[1]], "(", gamma.prior[[2]], ",", gamma.prior[[3]], ")")
-    #   }
-    # }
+    code <- paste0(code,
+                   "\t\tp[i, 1] <- q[i, 1]\n")
+    code <- paste0(code,
+                   "\t\tfor (j in 2:", nof1$ncat - 1, ") {\n")
+    code <- paste0(code,
+                   "\t\t\tp[i,j] <- q[i, j] - q[i, j-1]\n")
+    code <- paste0(code,
+                   "\t\t}\n")
+    code <- paste0(code,
+                   "\t\tp[i, ", nof1$ncat, "] <- 1 - q[i, ", nof1$ncat - 1, "]\n")
 
-    #code <- paste0(code, nof1.hy.prior.rjags(hy.prior), "\n}")
-    code <- paste0(code, "\n}")
-    return(code)
-  })
+  } else { # (nof1$ord.model == "acat")
+    code <- paste0(code,
+                   "\t\t\tp[i, j] <- p[i, j-1] * c[i, j-1]\n")
+    code <- paste0(code,
+                   "\t\t\tlog(c[i, j-1]) <- alpha[j-1]")
+    for(Treat.name.i in 2:nof1$n.Treat){
+      code <- paste0(code,
+                     " + beta_", nof1$Treat.name[Treat.name.i], " * Treat_", nof1$Treat.name[Treat.name.i], "[i]")
+    }
+    code <- paste0(code, "\n")
+    code <- paste0(code,
+                   "\t\t}\n")
+
+    # at least 3 categories in the ordinal outcome because we always retain the missing levels
+    # so at least 2 contrasts
+    code <- paste0(code,
+                   "\t\tp[i, 1] <- 1 / (1 + c[i, 1] + c[i, 1] * c[i, 2]")
+
+    # need to test if there are more than 5 levels
+    if (nof1$ncat >= 4) {
+      for (i in 4:nof1$ncat) {
+        code <- paste0(code,
+                       " + c[i, 1]")
+        for (j in 2:(i - 1)) {
+          code <- paste0(code,
+                         " * c[i, ", j, "]")
+        }
+      }
+    }
+    code <- paste0(code,
+                   ")\n")
+  }
+
+
+  code <- paste0(code,
+                 "\t\tY[i] ~ dcat(p[i, ])\n")
+  code <- paste0(code,
+                 "\t}\n\n")
+
+  # "\n\t\tp[i,1] <- 1 - Q[i,1]",
+  # "\n\t\tfor(r in 2:", ncat-1, ") {",
+  # "\n\t\t\tp[i,r] <- Q[i,r-1] - Q[i,r]",
+  # "\n\t\t}",
+  # "\n\t\tp[i,", ncat, "] <- Q[i,", ncat-1, "]",
+  # "\n\t\tfor(r in 1:", ncat-1, ") {",
+  # "\n\t\t\tlogit(Q[i,r]) <- -c[r]") # + epsilon[i]")
+
+  # if(!is.null(knots)){
+  #   for(j in 1:ncol(BS)){
+  #     code <- paste0(code, " + gamma", j, "* BS[i,", j, "]")
+  #   }
+  # }
+
+  # priors
+  if (nof1$ord.model == "cumulative") {
+
+    # dalpha put increasing restriction on alpha
+    code <- paste0(code,
+                   "\talpha[1] <- dalpha[1]\n",
+                   "\tdalpha[1] ~ ", nof1$alpha.prior[[1]], "(", nof1$alpha.prior[[2]], ", ", nof1$alpha.prior[[3]], ")\n")
+
+    code <- paste0(code,
+                   "\tfor (j in 2:", nof1$ncat - 1,") {\n")
+    code <- paste0(code,
+                   "\t\talpha[j] <- alpha[j-1] + dalpha[j]\n")
+    code <- paste0(code,
+                   "\t\tdalpha[j] ~ ", nof1$alpha.prior[[1]], "(", nof1$alpha.prior[[2]], ", ", nof1$alpha.prior[[3]], ") T(0, )\n")
+    code <- paste0(code,
+                   "\t}\n")
+
+  } else { # nof1$ord.model == "acat"
+    code <- paste0(code,
+                   "\tfor (j in 2:", nof1$ncat, ") {\n")
+    code <- paste0(code,
+                   "\t\talpha[j-1] ~ ", nof1$alpha.prior[[1]], "(", nof1$alpha.prior[[2]], ", ", nof1$alpha.prior[[3]], ")\n")
+    code <- paste0(code,
+                   "\t}\n\n")
+  }
+
+  for(Treat.name.i in 2:nof1$n.Treat){
+    code <- paste0(code,
+                   "\tbeta_", nof1$Treat.name[Treat.name.i], " ~ ", nof1$beta.prior[[1]], "(", nof1$beta.prior[[2]], ", ", nof1$beta.prior[[3]], ")\n")
+  }
+
+  # code <- paste0(code,
+  #                "\n\t\t}",
+  #                "\n\t}",
+  #                "\n\tfor(i in 2:", ncat-1, ") {",
+  #                "\n\t\tdc[i] ~ ", dc.prior[[1]], "(", dc.prior[[2]], ",", dc.prior[[3]], ")",
+  #                "\n\t}",
+  #                "\n\tc[1] <- dc[1]",
+  #                "\n\tfor (i in 2:", ncat-1, ") {",
+  #                "\n\t\tc[i] <- c[i-1] + dc[i]",
+  #                "\n\t}",
+  #                "\n\tdc[1] ~ ", c1.prior[[1]], "(", c1.prior[[2]], ",", c1.prior[[3]], ")")
+  #
+  # for(i in Treat.name){
+  #   code <- paste0(code, "\n\tbeta_", i, " ~ ", beta.prior[[1]], "(", beta.prior[[2]], ",", beta.prior[[3]], ")")
+  # }
+  # if(!is.null(knots)){
+  #   for(j in 1:ncol(BS)){
+  #     code <- paste0(code, "\n\tgamma", j, " ~ ", gamma.prior[[1]], "(", gamma.prior[[2]], ",", gamma.prior[[3]], ")")
+  #   }
+  # }
+
+  #code <- paste0(code, nof1.hy.prior.rjags(hy.prior), "\n}")
+  code <- paste0(code, "}")
+  return(code)
+
 }
 
 
@@ -246,3 +355,339 @@ nof1.hy.prior.rjags <- function(hy.prior){
 }
 
 
+
+nof1.ma.rjags <- function(nof1) {
+
+  if (nof1$response == "normal") {
+    code <- nof1.ma.normal.rjags(nof1)
+  } else if (nof1$response == "poisson") {
+    code <- nof1.ma.poisson.rjags(nof1)
+  } else if (nof1$response == "binomial") {
+    code <- nof1.ma.binomial.rjags(nof1)
+  }
+
+  return(code)
+}
+
+
+
+nof1.ma.normal.rjags <- function(nof1) {
+
+  code <- paste0("model{\n")
+
+  code <- paste0(code,
+                 "\tfor (i in 1:n.ID) {\n\n")
+
+  # Fixed intercepts (prior)
+  code <- paste0(code,
+                 "\t\talpha[i] ~ ", nof1$alpha.prior[[1]], "(", nof1$alpha.prior[[2]], ", ", nof1$alpha.prior[[3]], ")")
+
+  # Truncated normal distribution for beta's
+  if (length(nof1$alpha.prior) > 3) {
+
+    if (!is.na(nof1$alpha.prior[[4]])) {
+      code <- paste0(code,
+                     " T(", nof1$alpha.prior[[4]], ",")
+    } else {
+      code <- paste0(code,
+                     " T(,")
+    }
+
+    if(!is.na(nof1$alpha.prior[[5]])) {
+      code <- paste0(code,
+                     nof1$alpha.prior[[5]], ")")
+    } else {
+      code <- paste0(code,
+                     ")")
+    }
+  } # if (length(nof1$alpha.prior) > 3) {
+
+  # Random effects
+  code <- paste0(code,
+                 "\n\t\tbeta[i, 1:", nof1$n.Treat - 1, "] ~ dmnorm.vcov(d[1:", nof1$n.Treat - 1, "], Sigma_delta[1:",
+                 nof1$n.Treat - 1, ", 1:", nof1$n.Treat - 1, "])\n")
+
+  for (Treat.name.i in 2:nof1$n.Treat) {
+    code <- paste0(code,
+                   "\t\tbeta_", nof1$Treat.name[Treat.name.i], "[i] <- beta[i, ", Treat.name.i - 1, "]\n")
+  }
+  code <- paste0(code, "\n")
+
+  # First level model
+  code <- paste0(code,
+                 "\t\tfor (j in 1:nobs.ID[i]) {\n")
+
+  code <- paste0(code,
+                 "\t\t\tY[j, i] ~ dnorm(mu[j, i], prec_resid)\n")
+  code <- paste0(code,
+                 "\t\t\tmu[j, i] <- alpha[i]")
+
+  if (nof1$n.Treat > 1) {
+    for(Treat.name.i in 2:nof1$n.Treat){
+      code <- paste0(code,
+                     " + beta_", nof1$Treat.name[Treat.name.i], "[i] * Treat_", nof1$Treat.name[Treat.name.i], "[j, i]")
+    }
+  }
+
+  # adjust for covariates
+  if (!is.null(nof1$names.covariates)) {
+
+    for (covariates.i in 1:length(nof1$names.covariates)) {
+      code <- paste0(code,
+                     " + beta_", nof1$names.covariates[covariates.i], " * ", nof1$names.covariates[covariates.i], "[j, i]")
+    }
+
+  }
+  code <- paste0(code, "\n")
+
+  code <- paste0(code, "\t\t}\n") # for (j in 1:nobs.ID[i])
+  code <- paste0(code, "\t}\n\n")  # for (i in 1:n.ID)
+
+  # Priors
+  # prior for residual error
+  code <- paste0(code,
+                 "\tsd_resid <- pow(prec_resid, -0.5)\n")
+  code <- paste0(code,
+                 "\tprec_resid ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n\n")
+
+  # prior for treatment effect
+  code <- paste0(code,
+                 "\tprec_delta ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n")
+  code <- paste0(code,
+                 "\tsigmaSq_d <- pow(prec_delta, -1)\n\n")
+
+  for (Treat.name.i in 2:nof1$n.Treat) {
+    code <- paste0(code,
+                   "\td[", Treat.name.i-1, "] ~ ", nof1$beta.prior[[1]], "(", nof1$beta.prior[[2]], ", ", nof1$beta.prior[[3]], ")\n")
+    code <- paste0(code,
+                   "\tSigma_delta[", Treat.name.i-1, ", ", Treat.name.i-1, "] <- sigmaSq_d\n")
+
+    if ((Treat.name.i-1) > 1) {
+      for (Treat.name.j in 1:(Treat.name.i-1-1)) {
+        code <- paste0(code,
+                       "\tSigma_delta[", Treat.name.i-1, ", ", Treat.name.j, "] <- sigmaSq_d / 2\n")
+      }
+    }
+
+    if (Treat.name.i <= (nof1$n.Treat - 1)) {
+      for (Treat.name.j in Treat.name.i:(nof1$n.Treat-1)) {
+        code <- paste0(code,
+                       "\tSigma_delta[", Treat.name.i-1, ", ", Treat.name.j, "] <- sigmaSq_d / 2\n")
+      }
+    }
+  }
+  code <- paste0(code, "\n")
+
+  # prior for covariate coefficients
+  if (!is.null(nof1$names.covariates)) {
+
+    for (covariates.i in 1:length(nof1$names.covariates)) {
+      code <- paste0(code,
+                     "\tbeta_", nof1$names.covariates[covariates.i], " ~ ", nof1$beta.prior[[1]], "(", nof1$beta.prior[[2]], ", ", nof1$beta.prior[[3]], ")\n")
+    }
+    code <- paste0(code, "\n")
+  }
+
+  code <- paste0(code, "}") # model {
+
+  # cat(code)
+  return(code)
+}
+
+
+
+nof1.ma.poisson.rjags <- function(nof1) {
+
+  code <- paste0("model{\n")
+
+  code <- paste0(code,
+                 "\tfor (i in 1:n.ID) {\n\n")
+
+  # Fixed intercepts (prior)
+  code <- paste0(code,
+                 "\t\talpha[i] ~ ", nof1$alpha.prior[[1]], "(", nof1$alpha.prior[[2]], ", ", nof1$alpha.prior[[3]], ")\n")
+
+  # Random effects
+  code <- paste0(code,
+                 "\t\tbeta[i, 1:", nof1$n.Treat - 1, "] ~ dmnorm.vcov(d[1:", nof1$n.Treat - 1, "], Sigma_delta[1:",
+                 nof1$n.Treat - 1, ", 1:", nof1$n.Treat - 1, "])\n")
+
+  for (Treat.name.i in 2:nof1$n.Treat) {
+    code <- paste0(code,
+                   "\t\tbeta_", nof1$Treat.name[Treat.name.i], "[i] <- beta[i, ", Treat.name.i - 1, "]\n")
+  }
+  code <- paste0(code, "\n")
+
+  # First level model
+  code <- paste0(code,
+                 "\t\tfor (j in 1:nobs.ID[i]) {\n")
+
+  code <- paste0(code,
+                 "\t\t\tY[j, i] ~ dpois(lambda[j, i])\n")
+  code <- paste0(code,
+                 "\t\t\tlog(lambda[j, i]) <- alpha[i]")
+
+  if (nof1$n.Treat > 1) {
+    for(Treat.name.i in 2:nof1$n.Treat){
+      code <- paste0(code,
+                     " + beta_", nof1$Treat.name[Treat.name.i], "[i] * Treat_", nof1$Treat.name[Treat.name.i], "[j, i]")
+    }
+  }
+
+  # adjust for covariates
+  if (!is.null(nof1$names.covariates)) {
+
+    for (covariates.i in 1:length(nof1$names.covariates)) {
+      code <- paste0(code,
+                     " + beta_", nof1$names.covariates[covariates.i], " * ", nof1$names.covariates[covariates.i], "[j, i]")
+    }
+
+  }
+  code <- paste0(code, "\n")
+
+  code <- paste0(code, "\t\t}\n") # for (j in 1:nobs.ID[i])
+  code <- paste0(code, "\t}\n\n")  # for (i in 1:n.ID)
+
+  # Priors
+  # prior for treatment effect
+  code <- paste0(code,
+                 "\tprec_delta ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n")
+  code <- paste0(code,
+                 "\tsigmaSq_d <- pow(prec_delta, -1)\n\n")
+
+  for (Treat.name.i in 2:nof1$n.Treat) {
+    code <- paste0(code,
+                   "\td[", Treat.name.i-1, "] ~ ", nof1$beta.prior[[1]], "(", nof1$beta.prior[[2]], ", ", nof1$beta.prior[[3]], ")\n")
+    code <- paste0(code,
+                   "\tSigma_delta[", Treat.name.i-1, ", ", Treat.name.i-1, "] <- sigmaSq_d\n")
+
+    if ((Treat.name.i-1) > 1) {
+      for (Treat.name.j in 1:(Treat.name.i-1-1)) {
+        code <- paste0(code,
+                       "\tSigma_delta[", Treat.name.i-1, ", ", Treat.name.j, "] <- sigmaSq_d / 2\n")
+      }
+    }
+
+    if (Treat.name.i <= (nof1$n.Treat - 1)) {
+      for (Treat.name.j in Treat.name.i:(nof1$n.Treat-1)) {
+        code <- paste0(code,
+                       "\tSigma_delta[", Treat.name.i-1, ", ", Treat.name.j, "] <- sigmaSq_d / 2\n")
+      }
+    }
+  }
+  code <- paste0(code, "\n")
+
+  # prior for covariate coefficients
+  if (!is.null(nof1$names.covariates)) {
+
+    for (covariates.i in 1:length(nof1$names.covariates)) {
+      code <- paste0(code,
+                     "\tbeta_", nof1$names.covariates[covariates.i], " ~ ", nof1$beta.prior[[1]], "(", nof1$beta.prior[[2]], ", ", nof1$beta.prior[[3]], ")\n")
+    }
+    code <- paste0(code, "\n")
+  }
+
+  code <- paste0(code, "}") # model {
+
+  # cat(code)
+  return(code)
+}
+
+
+
+nof1.ma.binomial.rjags <- function(nof1) {
+
+  code <- paste0("model{\n")
+
+  code <- paste0(code,
+                 "\tfor (i in 1:n.ID) {\n\n")
+
+  # Fixed intercepts (prior)
+  code <- paste0(code,
+                 "\t\talpha[i] ~ ", nof1$alpha.prior[[1]], "(", nof1$alpha.prior[[2]], ", ", nof1$alpha.prior[[3]], ")\n")
+
+  # Random effects
+  code <- paste0(code,
+                 "\t\tbeta[i, 1:", nof1$n.Treat - 1, "] ~ dmnorm.vcov(d[1:", nof1$n.Treat - 1, "], Sigma_delta[1:",
+                 nof1$n.Treat - 1, ", 1:", nof1$n.Treat - 1, "])\n")
+
+  for (Treat.name.i in 2:nof1$n.Treat) {
+    code <- paste0(code,
+                   "\t\tbeta_", nof1$Treat.name[Treat.name.i], "[i] <- beta[i, ", Treat.name.i - 1, "]\n")
+  }
+  code <- paste0(code, "\n")
+
+  # First level model
+  code <- paste0(code,
+                 "\t\tfor (j in 1:nobs.ID[i]) {\n")
+
+  code <- paste0(code,
+                 "\t\t\tY[j, i] ~ dbern(p[j, i])\n")
+  code <- paste0(code,
+                 "\t\t\tlogit(p[j, i]) <- alpha[i]")
+
+  if (nof1$n.Treat > 1) {
+    for(Treat.name.i in 2:nof1$n.Treat){
+      code <- paste0(code,
+                     " + beta_", nof1$Treat.name[Treat.name.i], "[i] * Treat_", nof1$Treat.name[Treat.name.i], "[j, i]")
+    }
+  }
+
+  # adjust for covariates
+  if (!is.null(nof1$names.covariates)) {
+
+    for (covariates.i in 1:length(nof1$names.covariates)) {
+      code <- paste0(code,
+                     " + beta_", nof1$names.covariates[covariates.i], " * ", nof1$names.covariates[covariates.i], "[j, i]")
+    }
+
+  }
+  code <- paste0(code, "\n")
+
+  code <- paste0(code, "\t\t}\n") # for (j in 1:nobs.ID[i])
+  code <- paste0(code, "\t}\n\n")  # for (i in 1:n.ID)
+
+  # Priors
+  # prior for treatment effect
+  code <- paste0(code,
+                 "\tprec_delta ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n")
+  code <- paste0(code,
+                 "\tsigmaSq_d <- pow(prec_delta, -1)\n\n")
+
+  for (Treat.name.i in 2:nof1$n.Treat) {
+    code <- paste0(code,
+                   "\td[", Treat.name.i-1, "] ~ ", nof1$beta.prior[[1]], "(", nof1$beta.prior[[2]], ", ", nof1$beta.prior[[3]], ")\n")
+    code <- paste0(code,
+                   "\tSigma_delta[", Treat.name.i-1, ", ", Treat.name.i-1, "] <- sigmaSq_d\n")
+
+    if ((Treat.name.i-1) > 1) {
+      for (Treat.name.j in 1:(Treat.name.i-1-1)) {
+        code <- paste0(code,
+                       "\tSigma_delta[", Treat.name.i-1, ", ", Treat.name.j, "] <- sigmaSq_d / 2\n")
+      }
+    }
+
+    if (Treat.name.i <= (nof1$n.Treat - 1)) {
+      for (Treat.name.j in Treat.name.i:(nof1$n.Treat-1)) {
+        code <- paste0(code,
+                       "\tSigma_delta[", Treat.name.i-1, ", ", Treat.name.j, "] <- sigmaSq_d / 2\n")
+      }
+    }
+  }
+  code <- paste0(code, "\n")
+
+  # prior for covariate coefficients
+  if (!is.null(nof1$names.covariates)) {
+
+    for (covariates.i in 1:length(nof1$names.covariates)) {
+      code <- paste0(code,
+                     "\tbeta_", nof1$names.covariates[covariates.i], " ~ ", nof1$beta.prior[[1]], "(", nof1$beta.prior[[2]], ", ", nof1$beta.prior[[3]], ")\n")
+    }
+    code <- paste0(code, "\n")
+  }
+
+  code <- paste0(code, "}") # model {
+
+  # cat(code)
+  return(code)
+}

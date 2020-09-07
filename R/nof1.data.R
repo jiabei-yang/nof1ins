@@ -2,6 +2,9 @@
 #'
 #' @param Y Outcome of the study. This should be a vector with \code{NA}'s included in time order.
 #' @param Treat Treatment indicator vector with same length as the outcome. Can be character or numeric.
+#' @param ord.baseline.Treat Used for ordinal outcome to define a reference treatment level.
+#' @param ord.model Used for ordinal outcome to pick the model. Can be "cumulative" for proportional odds model
+#' or "acat" for restricted adjacent category model.
 #' @param response Type of outcome. Can be "normal" for continuous outcome, "binomial" for binary outcome,
 #' "poisson" for count outcome, or "ordinal" for ordinal or nominal outcome.
 #' @param ncat Number of categories. Used in ordinal models.
@@ -55,7 +58,7 @@
 
 # @param baseline baseline Treatment name. This serves as a baseline/placebo when comparing different treatments.
 # \item{baseline}{Baseline variable}
-nof1.data <- function(Y, Treat, response = NULL, ncat = NULL,
+nof1.data <- function(Y, Treat, ord.baseline.Treat = NULL, ord.model = NULL, response = NULL, ncat = NULL,
                       bs.trend = F, y.time = NULL, knots.bt.block = NULL, block.no = NULL, bs.df = NULL,
                       corr.y = F,
                       alpha.prior = NULL, beta.prior = NULL, eta.prior = NULL, dc.prior = NULL, c1.prior = NULL,
@@ -77,11 +80,22 @@ nof1.data <- function(Y, Treat, response = NULL, ncat = NULL,
 
   # sort to make the treatment order the same every time for different participants
   Treat.name <- sort(unique(Treat))
+  if (!is.null(ord.baseline.Treat)) {
+    Treat.name <- c(ord.baseline.Treat, as.character(Treat.name[Treat.name != ord.baseline.Treat]))
+  }
   # Treat.name <- Treat.name[Treat.name != baseline]
 
-  nof1 = list(Y = Y, Treat = Treat, ncat = ncat, nobs = nobs, Treat.name = Treat.name, response = response)
+  nof1 = list(Y = Y, Treat = Treat, nobs = nobs, Treat.name = Treat.name, n.Treat = length(Treat.name), response = response)
   # nof1 = list(Y = Y, Treat = Treat, baseline = baseline, ncat = ncat, nobs = nobs, Treat.name = Treat.name, response = response)
 
+  if (response == "ordinal") {
+    nof1 <- c(nof1,
+              ncat = ncat,
+              ord.baseline.Treat = ord.baseline.Treat,
+              ord.model          = ord.model)
+  }
+
+  # Treatment
   for(i in Treat.name){
     nam <- paste("Treat_", i, sep = "")
     nam <- assign(nam, as.numeric(Treat == i))
@@ -151,4 +165,126 @@ nof1.data <- function(Y, Treat, response = NULL, ncat = NULL,
 
   class(nof1) <- "nof1.data"
   nof1
+}
+
+
+# ID must be a complete vector with no missing values
+nof1.ma.data <- function(Y, Treat, baseline.Treat, ID, response, ord.ncat = NULL, ord.model, ord.parallel = NULL, covariates,
+                         bs.trend = F, y.time = NULL, knots.bt.block = NULL, block.no = NULL, bs.df = NULL,
+                         corr.y = F,
+                         alpha.prior = NULL, beta.prior = NULL, eta.prior = NULL, dc.prior = NULL, c1.prior = NULL,
+                         rho.prior = NULL, hy.prior = NULL, ...) {
+
+  # ID: same ID should stick together
+  # covariates: lists of covariates, categorical covariates must be of factor type
+  #             need to be careful about the covariate names, both treatment and covariate names are used to identify initial values
+  # ord.ncat: number of levels in ordinal outcome
+  # ord.parallel: logical. Whether the adjacent category model is restricted (same as parameter parallel in vglm).
+
+  Treat.name <- sort(unique(Treat))
+  if (!is.null(baseline.Treat)) {
+    Treat.name <- c(baseline.Treat, as.character(Treat.name[Treat.name != baseline.Treat]))
+  }
+  # Relevel the treatment
+  levels(Treat) <- Treat.name
+
+  rle.ID  <- rle(ID)
+  nobs.ID <- rle.ID$lengths
+  uniq.ID <- rle.ID$values
+  n.ID    <- length(nobs.ID)
+
+  max.obs.ID <- max(nobs.ID)
+
+  # uniq.ID has correspondence with nobs.ID
+  nof1 <- list(Y.long     = Y,
+               Treat      = Treat,
+               ID         = ID,
+               uniq.ID    = uniq.ID,
+               nobs.ID    = nobs.ID,
+               n.ID       = n.ID,
+               Treat.name = Treat.name,
+               n.Treat    = length(Treat.name),
+               response   = response)
+
+  if (response == "ordinal") {
+    nof1 <- c(nof1,
+              ord.ncat     = ord.ncat,
+              ord.model    = ord.model,
+              ord.parallel = ord.parallel)
+  }
+
+  # Generate outcome and treatment matrix
+  y.matrix <- matrix(NA, nrow = max.obs.ID, ncol = n.ID)
+  for (Treat.name.i in 1:length(Treat.name)) {
+    assign(paste0("Treat_", Treat.name[Treat.name.i]), NULL)
+  }
+
+  for (ID.i in 1:n.ID) {
+    y.matrix[1:nobs.ID[ID.i], ID.i] <- Y[ID == uniq.ID[ID.i]]
+
+    for (Treat.name.i in 1:length(Treat.name)) {
+      assign(paste0("Treat_", Treat.name[Treat.name.i]),
+             cbind(get(paste0("Treat_", Treat.name[Treat.name.i])),
+                   c(as.numeric(Treat[ID == uniq.ID[ID.i]] == Treat.name[Treat.name.i]), rep(NA, max.obs.ID - nobs.ID[ID.i]))))
+    }
+  }
+
+  nof1$Y <- y.matrix
+  for (Treat.name.i in 1:length(Treat.name)) {
+    nof1[[paste0("Treat_", Treat.name[Treat.name.i])]] <- get(paste0("Treat_", Treat.name[Treat.name.i]))
+  }
+
+  # Covariates
+  if (!is.null(covariates)) {
+    names.covariates <- names(covariates)
+    nof1$names.covariates      <- NULL
+    nof1$names.long.covariates <- NULL
+
+    for (covariates.i in 1:length(covariates)) {
+
+      nof1$names.long.covariates <- c(nof1$names.long.covariates, paste0(names.covariates[covariates.i], "_long"))
+      nof1[[paste0(names.covariates[covariates.i], "_long")]] <- covariates[[covariates.i]]
+
+      # continuous covariates
+      # NEED TO TEST CODE ON CONTINUOUS COVARIATES
+      if (!is.factor(covariates[[covariates.i]])) {
+        nof1[[names.covariates[covariates.i]]] <- NULL
+        for (ID.i in 1:n.ID) {
+          nof1[[names.covariates[covariates.i]]] <- cbind(nof1[[names.covariates[covariates.i]]],
+                                                          c(covariates[[covariates.i]][ID == uniq.ID[ID.i]], rep(NA, max.obs.ID - nobs.ID[ID.i])))
+        }
+        nof1$names.covariates <- c(nof1$names.covariates, names.covariates[covariates.i])
+
+      } else { # categorical covariates
+
+        tmp.lvls <- levels(covariates[[covariates.i]])
+
+        # For each level, create a covariate matrix with each column for a participant
+        for (tmp.lvls.i in 2:length(tmp.lvls)) {
+
+          tmp.cov.name <- paste0(names.covariates[covariates.i], "_", tmp.lvls.i)
+          nof1[[tmp.cov.name]] <- NULL
+          # add covariate name to the vector
+          nof1$names.covariates <- c(nof1$names.covariates, tmp.cov.name)
+
+          for (ID.i in 1:n.ID) {
+            nof1[[tmp.cov.name]] <- cbind(nof1[[tmp.cov.name]],
+                                          c(as.numeric(covariates[[covariates.i]][ID == uniq.ID[ID.i]] == tmp.lvls[tmp.lvls.i]), rep(NA, max.obs.ID - nobs.ID[ID.i])))
+          }
+
+        } # tmp.lvls.i
+      } # categorical covariates
+    } # covariate.i
+  } # covariates exist
+
+  prior.param <- list(response = response, dc.prior = dc.prior, c1.prior = c1.prior, alpha.prior = alpha.prior, beta.prior = beta.prior, eta.prior = eta.prior, hy.prior = hy.prior, rho.prior = rho.prior)
+  prior.data <- nof1.prior.default(prior.param)
+  nof1 <- c(nof1, prior.data)
+
+  code <- nof1.ma.rjags(nof1)
+  nof1$code <- code
+  # cat(code)
+
+  class(nof1) <- "nof1.data"
+  return(nof1)
 }

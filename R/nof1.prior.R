@@ -3,19 +3,19 @@ nof1.prior.default <- function(prior.param){
   with(prior.param, {
 
   if(is.null(alpha.prior)){
-    alpha.prior <- list("dnorm", 0, 0.001)
+    alpha.prior <- list("dnorm", 0, 1e-6)
   }
 
   if(is.null(beta.prior)){
     if(response == "ordinal"){
       beta.prior <- list("dnorm", 0, 0.25)
     } else{
-      beta.prior <- list("dnorm", 0, 0.001)    
+      beta.prior <- list("dnorm", 0, 1e-6)
     }
   }
 
   if(is.null(eta.prior)){
-    eta.prior <- list("dnorm", 0, 0.001)
+    eta.prior <- list("dnorm", 0, 1e-6)
   }
 
   if(is.null(rho.prior)){
@@ -24,7 +24,7 @@ nof1.prior.default <- function(prior.param){
 
   if(is.null(hy.prior)){
     if(response == "binomial"){
-      hy.prior <- list("dunif", 0, 5)
+      hy.prior <- list("dunif", 0, 100)
     } else if (response == "normal"){
       hy.prior <- list("dgamma", 0.001, 0.001)
       # sd <- (max(Y, na.rm = T) - min(Y, na.rm = T)) / 2

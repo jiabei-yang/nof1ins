@@ -1,22 +1,22 @@
 #' Run the model using the nof1 object
-#' 
-#' This is the core function that runs the model in our program. Before running this function, we need to specify data, prior, 
+#'
+#' This is the core function that runs the model in our program. Before running this function, we need to specify data, prior,
 #' JAGS code, etc. using \code{\link{nof1.data}}.
 #'
 #' @param nof1 nof1 object created from \code{\link{nof1.data}} function
-#' @param inits Initial values for the parameters being sampled. If left unspecified, program will generate 
+#' @param inits Initial values for the parameters being sampled. If left unspecified, program will generate
 #' reasonable initial values.
 #' @param n.chains Number of chains to run
-#' @param max.run Maximum number of iterations that user is willing to run. If the algorithm is not 
+#' @param max.run Maximum number of iterations that user is willing to run. If the algorithm is not
 #' converging, it will run up to \code{max.run} iterations before printing a message that it did not converge
-#' @param setsize Number of iterations that are run between convergence checks. If the algorithm converges 
-#' fast, user wouldn't need a big setsize. The number that is printed between each convergence checks is the 
+#' @param setsize Number of iterations that are run between convergence checks. If the algorithm converges
+#' fast, user wouldn't need a big setsize. The number that is printed between each convergence checks is the
 #' gelman-rubin diagnostics and we would want that to be below the conv.limit the user specifies.
-#' @param n.run Final number of iterations that the user wants to store. If after the algorithm converges, 
-#' user wants less number of iterations, we thin the sequence. If the user wants more iterations, we run 
+#' @param n.run Final number of iterations that the user wants to store. If after the algorithm converges,
+#' user wants less number of iterations, we thin the sequence. If the user wants more iterations, we run
 #' extra iterations to reach the specified number of runs
 #' @param conv.limit Convergence limit for Gelman and Rubin's convergence diagnostic.
-#' @param extra.pars.save Parameters that user wants to save besides the default parameters saved. See code 
+#' @param extra.pars.save Parameters that user wants to save besides the default parameters saved. See code
 #' using \code{cat(nof1$code)} to see which parameters can be saved.
 #' @return
 #' \item{nof1}{nof1 object}
@@ -39,6 +39,14 @@
 nof1.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, setsize = 10000, n.run = 50000,
                      conv.limit = 1.05, extra.pars.save = NULL){
 
+  # inits = NULL
+  # n.chains = 3
+  # max.run = 100000
+  # setsize = 10000
+  # n.run = 50000
+  # conv.limit = 1.05
+  # extra.pars.save = NULL
+
   if (!inherits(nof1, "nof1.data")) {
     stop('Given object is not nof1.data. Run nof1.data function first')
   }
@@ -48,62 +56,159 @@ nof1.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, setsize
   }
 
   # Originally within object nof1 using with() function
-  if (nof1$response == "ordinal"){
-    pars.save <- "c"
+  if (nof1$response == "ordinal") {
+    pars.save <- "alpha"
+
+    if(nof1$n.Treat >= 2) {
+      for(i in 2:nof1$n.Treat){
+        pars.save <- c(pars.save, paste0("beta_", nof1$Treat.name[i]))
+      }
+    }
+
   } else {
     pars.save <- NULL
+    for(i in nof1$Treat.name){
+      pars.save <- c(pars.save, paste0("beta_", i))
+    }
   }
-  
-  for(i in nof1$Treat.name){
-    pars.save <- c(pars.save, paste0("beta_", i))
-  }
-  
+
   if(nof1$response == "normal"){
     pars.save <- c(pars.save, "sd")
   }
-  
+
   # bs_df <- nof1$bs_df
   if (nof1$bs.trend) {
     for(i in 1:nof1$bs_df){
       pars.save <- c(pars.save, paste0("eta_", i))
     }
   }
-  
+
   if (nof1$corr.y) {
     pars.save <- c(pars.save, "rho")
   }
-  
+
   # Y <- nof1$Y
   data <- list(Y = nof1$Y)
-  for(i in nof1$Treat.name){
-    data[[paste0("Treat_", i)]] <- nof1[[paste0("Treat_", i)]]
-    data[[paste0("Treat_", i)]][is.na(data[[paste0("Treat_", i)]])] <- 0
+
+  if (nof1$response == "ordinal") {
+
+    if(nof1$n.Treat >= 2) {
+      for(i in 2:nof1$n.Treat){
+        data[[paste0("Treat_", nof1$Treat.name[i])]] <- nof1[[paste0("Treat_", nof1$Treat.name[i])]]
+        data[[paste0("Treat_", nof1$Treat.name[i])]][is.na(data[[paste0("Treat_", nof1$Treat.name[i])]])] <- 0
+      }
+    }
+
+  } else {
+    for(i in nof1$Treat.name){
+      data[[paste0("Treat_", i)]] <- nof1[[paste0("Treat_", i)]]
+      data[[paste0("Treat_", i)]][is.na(data[[paste0("Treat_", i)]])] <- 0
+    }
   }
-  
+
   if (nof1$bs.trend) {
     for (i in 1:nof1$bs_df){
       data[[paste0("bs", i)]] <- nof1[[paste0("bs", i)]]
     }
   }
-  
-  if(is.null(inits)){
+
+  if (is.null(inits)) {
     inits <- nof1.inits(nof1, n.chains)
   }
-  
+
   samples <- jags.fit(nof1, data, pars.save, inits, n.chains, max.run, setsize, n.run, conv.limit)
-  
+  # head(samples$samples[[1]])
+
   result <- list(nof1 = nof1, inits = inits, pars.save = pars.save, data.rjags = data)
   result <- c(result, samples)
-  
+
   class(result) <- "nof1.result"
   return(result)
-  
+
 }
+
+
+
+nof1.ma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, setsize = 10000, n.run = 50000,
+                        conv.limit = 1.05, extra.pars.save = NULL) {
+
+  # inits = NULL
+  # n.chains = 3
+  # max.run = 100000
+  # setsize = 10000
+  # n.run = 50000
+  # conv.limit = 1.05
+  # extra.pars.save = NULL
+
+  if (!inherits(nof1, "nof1.data")) {
+    stop('Given object is not nof1.data. Run nof1.data function first')
+  }
+
+  if (max.run < setsize) {
+    stop("setsize should be smaller than max.run")
+  }
+
+  # Create pars.save
+  pars.save <- c("alpha", "d", "sigmaSq_d")
+
+  if(nof1$response == "normal"){
+    pars.save <- c(pars.save, "sd_resid")
+  }
+
+  for(Treat.name.i in 2:length(nof1$Treat.name)){
+    pars.save <- c(pars.save, paste0("beta_", nof1$Treat.name[Treat.name.i]))
+  }
+
+  # adjust for covariates
+  if (!is.null(nof1$names.covariates)) {
+    pars.save <- c(pars.save, paste0("beta_", nof1$names.covariates))
+  }
+
+  # extra parameters
+  if (!is.null(extra.pars.save)) {
+    pars.save <- c(pars.save, extra.pars.save)
+  }
+
+  # Create data for fitting jags
+  # Y <- nof1$Y
+  data <- list(Y = nof1$Y)
+  for (Treat.name.i in 2:length(nof1$Treat.name)) {
+    data[[paste0("Treat_", nof1$Treat.name[Treat.name.i])]] <- nof1[[paste0("Treat_", nof1$Treat.name[Treat.name.i])]]
+  }
+
+  data$n.ID    <- nof1$n.ID
+  data$nobs.ID <- nof1$nobs.ID
+
+  # data on covariates
+  if (!is.null(nof1$names.covariates)) {
+    for (covariates.i in 1:length(nof1$names.covariates)) {
+      data[[nof1$names.covariates[covariates.i]]] <- nof1[[nof1$names.covariates[covariates.i]]]
+    }
+  }
+
+  # Initial values
+  if (is.null(inits)) {
+    inits <- nof1.ma.inits(nof1, n.chains)
+  }
+
+  # samples <- jags.fit(nof1, data, pars.save, NULL, n.chains = 3, max.run = 10^5, setsize = 10^4, n.run = 50000, conv.limit = 1.05)
+  samples <- jags.fit(nof1, data, pars.save, inits, n.chains, max.run, setsize, n.run, conv.limit)
+
+  result <- list(nof1 = nof1, inits = inits, pars.save = pars.save, data.rjags = data)
+  result <- c(result, samples)
+
+  class(result) <- "nof1.result"
+  return(result)
+
+}
+
+
 
 jags.fit <- function(nof1, data, pars.save, inits, n.chains, max.run, setsize, n.run, conv.limit){
 
+  # set.seed(seed)
   mod = rjags::jags.model(textConnection(nof1$code), data = data, inits = inits, n.chains = n.chains, n.adapt = setsize)
-  
+
   adapted <- FALSE
   count <- 0
   while(!adapted){
@@ -113,7 +218,7 @@ jags.fit <- function(nof1, data, pars.save, inits, n.chains, max.run, setsize, n
       stop("algorithm has not adapted")
     }
   }
-  
+
   samples <- rjags::coda.samples(model = mod, variable.names = pars.save, n.iter = setsize)
 
   max.gelman <- find.max.gelman(samples)

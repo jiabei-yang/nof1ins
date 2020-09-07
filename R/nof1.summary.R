@@ -28,80 +28,222 @@ summarize_nof1 <- function(result, alpha = 0.05){
   samples    <- do.call(rbind, result$samples)
   response   <- result$nof1$response
 
-  n            <- NULL
-  raw.y.mean   <- NULL
-  raw.y.median <- NULL
-  raw.y.sd     <- NULL
-  post.coef.mean   <- NULL
-  post.coef.median <- NULL
-  post.y.mean   <- NULL
-  post.y.median <- NULL
-  post.coef.ci <- NULL
-  post.y.ci    <- NULL
+  if (response != "ordinal") {
 
-  for (i in treat.name){
+    n            <- NULL
+    raw.y.mean   <- NULL
+    raw.y.median <- NULL
+    raw.y.sd     <- NULL
+    post.coef.mean   <- NULL
+    post.coef.median <- NULL
+    post.y.mean   <- NULL
+    post.y.median <- NULL
+    post.coef.ci <- NULL
+    post.y.ci    <- NULL
 
-    n <- c(n, sum(!is.na(result$nof1$Y[result$nof1$Treat == i])))
-    raw.y.mean   <- c(raw.y.mean, mean(result$nof1$Y[result$nof1$Treat == i], na.rm = TRUE))
-    raw.y.median <- c(raw.y.median, median(result$nof1$Y[result$nof1$Treat == i], na.rm = TRUE))
-    raw.y.sd     <- c(raw.y.sd, sd(result$nof1$Y[result$nof1$Treat == i], na.rm = TRUE))
+    for (i in treat.name){
 
-    col.treat.name <- paste0("beta_", i)
-    post.coef <- samples[, col.treat.name]
-    post.coef.mean   <- c(post.coef.mean, mean(post.coef))
-    post.coef.median <- c(post.coef.median, median(post.coef))
+      n <- c(n, sum(!is.na(result$nof1$Y[result$nof1$Treat == i])))
+      raw.y.mean   <- c(raw.y.mean, mean(result$nof1$Y[result$nof1$Treat == i], na.rm = TRUE))
+      raw.y.median <- c(raw.y.median, median(result$nof1$Y[result$nof1$Treat == i], na.rm = TRUE))
+      raw.y.sd     <- c(raw.y.sd, sd(result$nof1$Y[result$nof1$Treat == i], na.rm = TRUE))
 
-    post.y <- link_function(post.coef, response)
-    post.y.mean   <- c(post.y.mean, mean(post.y))
-    post.y.median <- c(post.y.median, median(post.y))
+      col.treat.name <- paste0("beta_", i)
+      post.coef <- samples[, col.treat.name]
+      post.coef.mean   <- c(post.coef.mean, mean(post.coef))
+      post.coef.median <- c(post.coef.median, median(post.coef))
 
-    post.coef.ci <- rbind(post.coef.ci, quantile(post.coef, c(alpha/2, 1-alpha/2)))
-    post.y.ci    <- rbind(post.y.ci, quantile(post.y, c(alpha/2, 1-alpha/2)))
+      post.y <- link_function(post.coef, response)
+      post.y.mean   <- c(post.y.mean, mean(post.y))
+      post.y.median <- c(post.y.median, median(post.y))
+
+      post.coef.ci <- rbind(post.coef.ci, quantile(post.coef, c(alpha/2, 1-alpha/2)))
+      post.y.ci    <- rbind(post.y.ci, quantile(post.y, c(alpha/2, 1-alpha/2)))
+    }
+
+    names(n) <- names(raw.y.mean) <- names(raw.y.median) <- names(raw.y.sd) <- names(post.coef.mean) <- names(post.coef.median) <- names(post.y.mean) <- names(post.y.median) <- treat.name
+    rownames(post.coef.ci) <- rownames(post.y.ci) <- treat.name
+
+    comp.treat.name <- t(utils::combn(treat.name, 2))
+    comp.treat.post.coef   <- NULL
+    p.comp.coef.greater.0 <- NULL
+    for (i in 1:nrow(comp.treat.name)){
+
+      col.treat.name.1 <- paste0("beta_", comp.treat.name[i, 1])
+      col.treat.name.2 <- paste0("beta_", comp.treat.name[i, 2])
+      post.coef.1 <- samples[, col.treat.name.1]
+      post.coef.2 <- samples[, col.treat.name.2]
+      comp.treat.post.coef <- rbind(comp.treat.post.coef,
+                                    quantile(post.coef.2 - post.coef.1, c(alpha/2, 0.5, 1-alpha/2)))
+
+      p.comp.coef.greater.0 <- c(p.comp.coef.greater.0,
+                                 mean((post.coef.2 - post.coef.1) > 0))
+      # The following does not make sense for outcome other than normal
+      # post.y.1 <- link_function(post.coef.1, response)
+      # post.y.2 <- link_function(post.coef.2, response)
+      # comp.treat.post.y <- rbind(comp.treat.post.y,
+      #                            quantile(post.y.2 - post.y.1, c(alpha/2, 0.5, 1-alpha/2)))
+    }
+
+    rownames(comp.treat.post.coef) <- paste(comp.treat.name[, 2], comp.treat.name[, 1], sep = "_minus_")
+    # rownames(comp.treat.post.y) <-
+    names(p.comp.coef.greater.0)  <- paste(comp.treat.name[, 2], comp.treat.name[, 1], sep = "_minus_")
+
+    summ <- list(n            = n,
+                 raw.y.mean   = raw.y.mean,
+                 raw.y.median = raw.y.median,
+                 raw.y.sd     = raw.y.sd,
+                 post.coef.mean   = post.coef.mean,
+                 post.coef.median = post.coef.median,
+                 post.y.mean   = post.y.mean,
+                 post.y.median = post.y.median,
+                 post.coef.ci  = post.coef.ci,
+                 post.y.ci     = post.y.ci,
+                 comp.treat.post.coef  = comp.treat.post.coef,
+                 # comp.treat.post.y     = comp.treat.post.y,
+                 p.comp.coef.greater.0 = p.comp.coef.greater.0)
+
+  } else {
+
+    n           <- NULL
+    raw.y.count <- NULL
+    raw.y.mean  <- NULL
+
+    post.coef.int.contrasts <- NULL
+    post.y.int.contrasts   <- NULL
+
+    post.coef.trt.comp        <- NULL
+    post.y.trt.comp         <- NULL
+    p.coef.trt.comp.greater.0 <- NULL
+
+    post.y.median <- NULL
+
+    # Intercept contrasts
+    for (j in 2:result$nof1$ncat) {
+      tmp.post.coef <- quantile(samples[, j-1], c(alpha/2, 0.5, 1-alpha/2))
+      post.coef.int.contrasts <- rbind(post.coef.int.contrasts,
+                                       tmp.post.coef)
+      post.y.int.contrasts <- rbind(post.y.int.contrasts,
+                                    exp(tmp.post.coef))
+    }
+
+    # Treatment contrasts
+    comp.treat.name <- t(utils::combn(treat.name, 2))
+    for (i in 1:nrow(comp.treat.name)) {
+
+      tmp.comp <- comp.treat.name[i, ]
+
+      if (treat.name[1] %in% tmp.comp) {
+        tmp.colname   <- paste0("beta_", tmp.comp[tmp.comp != treat.name[1]])
+        tmp.post.coef <- quantile(samples[, tmp.colname], c(alpha/2, 0.5, 1-alpha/2))
+
+        post.coef.trt.comp <- rbind(post.coef.trt.comp, tmp.post.coef)
+        post.y.trt.comp    <- rbind(post.y.trt.comp, exp(tmp.post.coef))
+        p.coef.trt.comp.greater.0 <- c(p.coef.trt.comp.greater.0,
+                                       mean(samples[, tmp.colname] > 0))
+
+      } else { # comparison without baseline
+        tmp.colname.1 <- paste0("beta_", tmp.comp[1])
+        tmp.colname.2 <- paste0("beta_", tmp.comp[2])
+        tmp.post.coef <- quantile(samples[, tmp.colname.2] - samples[, tmp.colname.1],
+                                  c(alpha/2, 0.5, 1-alpha/2))
+
+        post.coef.trt.comp <- rbind(post.coef.trt.comp, tmp.post.coef)
+        post.y.trt.comp    <- rbind(post.y.trt.comp, exp(tmp.post.coef))
+        p.coef.trt.comp.greater.0 <- c(p.coef.trt.comp.greater.0,
+                                       mean(samples[, tmp.colname.2] - samples[, tmp.colname.1] > 0))
+      }
+
+    } # for nrow(comp.treat.name)
+
+    # Names
+    if (result$nof1$ord.model == "cumulative") {
+
+      rownames(post.coef.int.contrasts) <- paste0("Cumulative log odds(up to Cat ", 1:(result$nof1$ncat - 1), ")")
+      rownames(post.y.int.contrasts)    <- paste0("Cumulative odds(up to Cat ", 1:(result$nof1$ncat - 1), ")")
+
+    } else { # result$nof1$ord.model == "acat"
+      rownames(post.coef.int.contrasts) <- rownames(post.y.int.contrasts) <-
+        paste(paste0("(", paste0("Cat ", 2:result$nof1$ncat), ")"),
+              paste0("(", paste0("Cat ", 1:(result$nof1$ncat - 1)), ")"),
+              sep = " / ")
+    }
+
+    names(p.coef.trt.comp.greater.0) <- rownames(post.coef.trt.comp) <- rownames(post.y.trt.comp) <-
+      paste(comp.treat.name[, 2], comp.treat.name[, 1], sep = " / ")
+
+    # Summary per treatment per category
+    for (i in treat.name) {
+      n <- c(n, sum(!is.na(result$nof1$Y[result$nof1$Treat == i])))
+
+      tmp.raw.y.count <- NULL
+      tmp.raw.y.mean  <- NULL
+      for (j in 1:result$nof1$ncat) {
+        tmp.raw.y.count <- c(tmp.raw.y.count,
+                             sum(result$nof1$Y[result$nof1$Treat == i] == j, na.rm = T))
+        tmp.raw.y.mean <- c(tmp.raw.y.mean,
+                            mean(result$nof1$Y[result$nof1$Treat == i] == j, na.rm = T))
+      }
+      raw.y.count <- cbind(raw.y.count, tmp.raw.y.count)
+      raw.y.mean  <- cbind(raw.y.mean, tmp.raw.y.mean)
+
+    }
+
+    # Posterior probabilities
+    if (result$nof1$ord.model == "cumulative") {
+
+      tmp.post.y.median <- inv_logit(post.coef.int.contrasts[1, 2])
+      for (j in 2:(result$nof1$ncat - 1)) {
+        tmp.post.y.median <- c(tmp.post.y.median,
+                               inv_logit(post.coef.int.contrasts[j, 2]) - inv_logit(post.coef.int.contrasts[j-1, 2]))
+      }
+      tmp.post.y.median <- c(tmp.post.y.median,
+                             1 - inv_logit(post.coef.int.contrasts[result$nof1$ncat - 1, 2]))
+      post.y.median <- cbind(post.y.median, tmp.post.y.median)
+
+      # other than baseline treatment
+      for (i in 2:result$nof1$n.Treat) {
+        tmp.comp.ind <- rownames(post.coef.trt.comp) == paste0(treat.name[i], " / ", treat.name[1])
+        tmp.post.y.median <- inv_logit(post.coef.int.contrasts[1, 2] + post.coef.trt.comp[tmp.comp.ind, 2])
+        for (j in 2:(result$nof1$ncat - 1)) {
+          tmp.post.y.median <- c(tmp.post.y.median,
+                                 inv_logit(post.coef.int.contrasts[j, 2] + post.coef.trt.comp[tmp.comp.ind, 2]) -
+                                   inv_logit(post.coef.int.contrasts[j-1, 2] + post.coef.trt.comp[tmp.comp.ind, 2]))
+        }
+        tmp.post.y.median <- c(tmp.post.y.median,
+                               1 - inv_logit(post.coef.int.contrasts[result$nof1$ncat - 1, 2] + post.coef.trt.comp[tmp.comp.ind, 2]))
+        post.y.median <- cbind(post.y.median, tmp.post.y.median)
+      }
+
+    } else { # result$nof1$ord.model == "acat"
+      tmp.post.y.median <- 1 / (1 + sum(exp(cumsum(post.coef.int.contrasts[, 2]))))
+      tmp.post.y.median <- c(tmp.post.y.median, tmp.post.y.median * exp(cumsum(post.coef.int.contrasts[, 2])))
+      post.y.median <- cbind(post.y.median, tmp.post.y.median)
+
+      for (i in 2:result$nof1$n.Treat) {
+        tmp.comp.ind <- rownames(post.coef.trt.comp) == paste0(treat.name[i], " / ", treat.name[1])
+        tmp.post.y.median <- 1 / (1 + sum(exp(cumsum(post.coef.int.contrasts[, 2] + post.coef.trt.comp[tmp.comp.ind, 2]))))
+        tmp.post.y.median <- c(tmp.post.y.median,
+                               tmp.post.y.median * exp(cumsum(post.coef.int.contrasts[, 2] + post.coef.trt.comp[tmp.comp.ind, 2])))
+        post.y.median <- cbind(post.y.median, tmp.post.y.median)
+      }
+    }
+
+    names(n) <- colnames(raw.y.count) <- colnames(raw.y.mean) <- colnames(post.y.median) <- treat.name
+    rownames(raw.y.count) <- rownames(raw.y.mean) <- rownames(post.y.median) <- paste0("Cat ", 1:result$nof1$ncat)
+
+    summ <- list(n             = n,
+                 raw.y.count   = raw.y.count,
+                 raw.y.mean    = raw.y.mean,
+                 post.y.median = post.y.median,
+                 post.coef.int.contrasts    = post.coef.int.contrasts,
+                 post.y.int.contrasts       = post.y.int.contrasts,
+                 post.coef.trt.comp         = post.coef.trt.comp,
+                 post.y.trt.comp            = post.y.trt.comp,
+                 p.coef.trt.comp.greater.0  = p.coef.trt.comp.greater.0)
   }
 
-  names(n) <- names(raw.y.mean) <- names(raw.y.median) <- names(raw.y.sd) <- names(post.coef.mean) <- names(post.coef.median) <- names(post.y.mean) <- names(post.y.median) <- treat.name
-  rownames(post.coef.ci) <- rownames(post.y.ci) <- treat.name
-
-  comp.treat.name <- t(utils::combn(treat.name, 2))
-  comp.treat.post.coef   <- NULL
-  p.comp.coef.greater.0 <- NULL
-  for (i in 1:nrow(comp.treat.name)){
-
-    col.treat.name.1 <- paste0("beta_", comp.treat.name[i, 1])
-    col.treat.name.2 <- paste0("beta_", comp.treat.name[i, 2])
-    post.coef.1 <- samples[, col.treat.name.1]
-    post.coef.2 <- samples[, col.treat.name.2]
-    comp.treat.post.coef <- rbind(comp.treat.post.coef,
-                                  quantile(post.coef.2 - post.coef.1, c(alpha/2, 0.5, 1-alpha/2)))
-
-    p.comp.coef.greater.0 <- c(p.comp.coef.greater.0,
-                               mean((post.coef.2 - post.coef.1) > 0))
-    # The following does not make sense for outcome other than normal
-    # post.y.1 <- link_function(post.coef.1, response)
-    # post.y.2 <- link_function(post.coef.2, response)
-    # comp.treat.post.y <- rbind(comp.treat.post.y,
-    #                            quantile(post.y.2 - post.y.1, c(alpha/2, 0.5, 1-alpha/2)))
-  }
-
-  rownames(comp.treat.post.coef) <- paste(comp.treat.name[, 2], comp.treat.name[, 1], sep = "_minus_")
-  # rownames(comp.treat.post.y) <-
-  names(p.comp.coef.greater.0)  <- paste(comp.treat.name[, 2], comp.treat.name[, 1], sep = "_minus_")
-
-  summ <- list(n            = n,
-               raw.y.mean   = raw.y.mean,
-               raw.y.median = raw.y.median,
-               raw.y.sd     = raw.y.sd,
-               post.coef.mean   = post.coef.mean,
-               post.coef.median = post.coef.median,
-               post.y.mean   = post.y.mean,
-               post.y.median = post.y.median,
-               post.coef.ci  = post.coef.ci,
-               post.y.ci     = post.y.ci,
-               comp.treat.post.coef  = comp.treat.post.coef,
-               # comp.treat.post.y     = comp.treat.post.y,
-               p.comp.coef.greater.0 = p.comp.coef.greater.0)
   return(summ)
-
 }
 
 #' time series plot across different interventions
