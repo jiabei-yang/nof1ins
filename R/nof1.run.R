@@ -149,14 +149,28 @@ nof1.ma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, sets
   }
 
   # Create pars.save
-  pars.save <- c("alpha", "d", "sigmaSq_d")
+  if (nof1$response == "ordinal") {
+    pars.save <- c("b", "sigmaSq_beta", "rho")
+    for(Treat.name.i in 1:length(nof1$Treat.name)){
+      pars.save <- c(pars.save, paste0("beta_", nof1$Treat.name[Treat.name.i]))
+    }
+
+  } else {
+    if (nof1$model.intcpt == "fixed") {
+      pars.save <- c("alpha", "d", "sigmaSq_d")
+    } else if (nof1$model.intcpt == "random") {
+      pars.save <- c("b", "sigmaSq_beta", "rho", paste0("beta_", nof1$Treat.name[1]))
+    } else if (nof1$model.intcpt == "common") {
+      pars.save <- paste0("beta_", nof1$Treat.name[1])
+    }
+
+    for(Treat.name.i in 2:length(nof1$Treat.name)){
+      pars.save <- c(pars.save, paste0("beta_", nof1$Treat.name[Treat.name.i]))
+    }
+  }
 
   if(nof1$response == "normal"){
     pars.save <- c(pars.save, "sd_resid")
-  }
-
-  for(Treat.name.i in 2:length(nof1$Treat.name)){
-    pars.save <- c(pars.save, paste0("beta_", nof1$Treat.name[Treat.name.i]))
   }
 
   # adjust for covariates
@@ -172,12 +186,24 @@ nof1.ma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, sets
   # Create data for fitting jags
   # Y <- nof1$Y
   data <- list(Y = nof1$Y)
-  for (Treat.name.i in 2:length(nof1$Treat.name)) {
+  # if (nof1$response == "ordinal") {
+  for (Treat.name.i in 1:length(nof1$Treat.name)) {
     data[[paste0("Treat_", nof1$Treat.name[Treat.name.i])]] <- nof1[[paste0("Treat_", nof1$Treat.name[Treat.name.i])]]
   }
+  # }
+  # else {
+  #   for (Treat.name.i in 2:length(nof1$Treat.name)) {
+  #     data[[paste0("Treat_", nof1$Treat.name[Treat.name.i])]] <- nof1[[paste0("Treat_", nof1$Treat.name[Treat.name.i])]]
+  #   }
+  # }
 
   data$n.ID    <- nof1$n.ID
   data$nobs.ID <- nof1$nobs.ID
+  data$n.Treat <- nof1$n.Treat
+
+  if (nof1$response == "ordinal") {
+    data$ord.ncat <- nof1$ord.ncat
+  }
 
   # data on covariates
   if (!is.null(nof1$names.covariates)) {
@@ -227,7 +253,7 @@ jags.fit <- function(nof1, data, pars.save, inits, n.chains, max.run, setsize, n
 
   if(check) {
     count <- 1
-    while (check & count < max.run/setsize) {
+    while (check & (count < max.run/setsize)) {
       samples2 <- rjags::coda.samples(mod, variable.names = pars.save, n.iter = setsize)
       samples <- add.mcmc(samples, samples2)
 

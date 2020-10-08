@@ -169,13 +169,16 @@ nof1.data <- function(Y, Treat, ord.baseline.Treat = NULL, ord.model = NULL, res
 
 
 # ID must be a complete vector with no missing values
-nof1.ma.data <- function(Y, Treat, baseline.Treat, ID, response, ord.ncat = NULL, ord.model, ord.parallel = NULL, covariates,
+nof1.ma.data <- function(Y, Treat, baseline.Treat, ID, response, model.intcpt = "fixed", model.linkfunc = NULL,
+                         ord.ncat = NULL, ord.model, ord.parallel = NULL,
+                         covariates,
                          bs.trend = F, y.time = NULL, knots.bt.block = NULL, block.no = NULL, bs.df = NULL,
                          corr.y = F,
                          alpha.prior = NULL, beta.prior = NULL, eta.prior = NULL, dc.prior = NULL, c1.prior = NULL,
                          rho.prior = NULL, hy.prior = NULL, ...) {
 
   # ID: same ID should stick together
+  # model.intcpt: "random" or "fixed". Currently, only work for normal outcome.
   # covariates: lists of covariates, categorical covariates must be of factor type
   #             need to be careful about the covariate names, both treatment and covariate names are used to identify initial values
   # ord.ncat: number of levels in ordinal outcome
@@ -204,7 +207,9 @@ nof1.ma.data <- function(Y, Treat, baseline.Treat, ID, response, ord.ncat = NULL
                n.ID       = n.ID,
                Treat.name = Treat.name,
                n.Treat    = length(Treat.name),
-               response   = response)
+               response   = response,
+               model.intcpt   = model.intcpt,
+               model.linkfunc = model.linkfunc)
 
   if (response == "ordinal") {
     nof1 <- c(nof1,

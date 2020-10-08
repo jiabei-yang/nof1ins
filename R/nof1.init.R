@@ -87,9 +87,9 @@ nof1.inits.normal <- function(nof1, n.chains){
           }
         }
 
-        if(hy.prior[[1]] == "dgamma"){
+        if((hy.prior[[1]] == "dgamma") | (hy.prior[[1]] == "dunif")){
           initial.values[[i]][["prec"]] <- 1/sigma2
-        } else if(hy.prior[[1]] == "dunif" || network$hy.prior[[1]] == "dhnorm"){
+        } else if(network$hy.prior[[1]] == "dhnorm"){
           initial.values[[i]][["sd"]] <- sqrt(sigma2)
         }
       }
@@ -261,7 +261,7 @@ nof1.inits.ordinal <- function(nof1, n.chains){
   #     }
   #   }
 
-    return(initial.values)
+  return(initial.values)
   # })
 }
 
@@ -275,12 +275,17 @@ nof1.ma.inits <- function(nof1, n.chains) {
     initial.values <- nof1.ma.poisson.inits(nof1, n.chains)
   } else if (nof1$response == "binomial") {
     initial.values <- nof1.ma.binomial.inits(nof1, n.chains)
+  } else if (nof1$response == "ordinal") {
+    # if ordinal outcome, no initial value because no equivalent frequentist model can be fit
+    initial.values <- nof1.ma.ordinal.inits(nof1, n.chains)
   }
 
-  #if initial value generated is too big (i.e. model didn't work because of sparse data), just set inital value to be NULL
-  if(any(abs(unlist(initial.values)) > 100)) {
+  # if (!is.null(initial.values)) {
+  # if initial value generated is too big (i.e. model didn't work because of sparse data), just set inital value to be NULL
+  if(any(abs(unlist(initial.values)) > 100, na.rm = T)) {
     initial.values <- NULL
   }
+  # }
 
   return(initial.values)
 }
@@ -290,13 +295,18 @@ nof1.ma.inits <- function(nof1, n.chains) {
 nof1.ma.normal.inits <- function(nof1, n.chains) {
 
   if (is.null(nof1$names.covariates)) {
-    model <- lm(nof1$Y.long ~ -1 + nof1$ID + nof1$Treat)
+    if (nof1$model.intcpt == "fixed") {
+      model <- glm(nof1$Y.long ~ -1 + nof1$ID + nof1$Treat, family = gaussian(link = nof1$model.linkfunc))
+    } else {
+      model <- glm(nof1$Y.long ~ -1 + nof1$Treat, family = gaussian(link = nof1$model.linkfunc))
+    }
+
   } else {
     tmp.formula <- "nof1$Y.long ~ -1 + nof1$ID + nof1$Treat"
     for (covariates.i in 1:length(nof1$names.long.covariates)) {
       tmp.formula <- paste0(tmp.formula, " + nof1$", nof1$names.long.covariates[covariates.i])
     }
-    model <- lm(as.formula(tmp.formula))
+    model <- glm(as.formula(tmp.formula), family = gaussian(link = nof1$model.linkfunc))
   }
 
   summ.model    <- summary(model)
@@ -308,70 +318,143 @@ nof1.ma.normal.inits <- function(nof1, n.chains) {
 
     initial.values[[n.chains.i]]   <- list()
 
-    # d
-    initial.values[[n.chains.i]]$d <- NULL
-    for (Treat.name.i in 2:nof1$n.Treat) {
+    if (nof1$model.intcpt == "common") {
 
-      ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[Treat.name.i]), names.coef)
-      initial.values[[n.chains.i]]$d <- c(initial.values[[n.chains.i]]$d,
-                                          rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+      for (n.Treat.i in 1:nof1$n.Treat) {
 
-      # initialize beta
-      # initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
-    }
+        ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[n.Treat.i]), names.coef)
+        initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[n.Treat.i])]] <-
+          rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2])
+      }
 
-    # alpha, beta's
-    # beta and variance of beta are not settable
-    initial.values[[n.chains.i]]$alpha <- NULL
-    for (id.i in 1:nof1$n.ID) {
+    } else {
+      if (nof1$model.intcpt == "fixed") {
+        # d
+        initial.values[[n.chains.i]]$d <- NULL
+        for (Treat.name.i in 2:nof1$n.Treat) {
 
-      ind.coefMat <- grepl(nof1$uniq.ID[id.i], names.coef)
-      initial.values[[n.chains.i]]$alpha <- c(initial.values[[n.chains.i]]$alpha,
+          ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[Treat.name.i]), names.coef)
+          initial.values[[n.chains.i]]$d <- c(initial.values[[n.chains.i]]$d,
                                               rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
 
-      # beta
-      ind.id        <- which((nof1$ID == nof1$uniq.ID[id.i]) & (!is.na(nof1$Y.long)))
-      if (length(unique(nof1$Treat[ind.id])) == 1) {
-        model.id.orig <- lm(nof1$Y.long[ind.id] ~ 1)
-      } else {
-        model.id.orig <- lm(nof1$Y.long[ind.id] ~ nof1$Treat[ind.id])
+          # initialize beta
+          # initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
+        }
+
+        # alpha
+        initial.values[[n.chains.i]]$alpha <- NULL
+        for (id.i in 1:nof1$n.ID) {
+
+          ind.coefMat <- grepl(nof1$uniq.ID[id.i], names.coef)
+          initial.values[[n.chains.i]]$alpha <- c(initial.values[[n.chains.i]]$alpha,
+                                                  rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+        }
+
+      } else if (nof1$model.intcpt == "random") { # if (nof1$model.intcpt == "fixed") {
+        # b
+        initial.values[[n.chains.i]]$b <- NULL
+        for (n.Treat.i in 1:nof1$n.Treat) {
+
+          ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[n.Treat.i]), names.coef)
+          initial.values[[n.chains.i]]$b <- c(initial.values[[n.chains.i]]$b,
+                                              rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+        }
       }
-      coefMat.model.id.orig <- coef(summary(model.id.orig))
+
+      # beta's
+      # beta and variance of beta are not settable
+      for (id.i in 1:nof1$n.ID) {
+
+        # beta
+        ind.id        <- which((nof1$ID == nof1$uniq.ID[id.i]) & (!is.na(nof1$Y.long)))
+        if (length(unique(nof1$Treat[ind.id])) == 1) {
+          model.id.orig <- lm(nof1$Y.long[ind.id] ~ 1)
+        } else {
+          if (nof1$model.intcpt == "fixed") {
+            model.id.orig <- lm(nof1$Y.long[ind.id] ~ nof1$Treat[ind.id])
+          } else {
+            model.id.orig <- lm(nof1$Y.long[ind.id] ~ -1 + nof1$Treat[ind.id])
+          }
+        }
+        coefMat.model.id.orig <- coef(summary(model.id.orig))
+
+        if (nof1$model.intcpt == "random") {
+          tmp.ind  <- grepl(paste0("]", nof1$Treat.name[1]), rownames(coefMat.model.id.orig))
+          # if there is no this treatment on this participant, generate grand mean
+          # minus 1 because of there is a reference treatment
+          if (sum(tmp.ind) == 0) {
+            tmp.coef <- initial.values[[n.chains.i]]$b[1]
+          } else if (is.nan(coefMat.model.id.orig[tmp.ind, 2])) { # no standard error
+            tmp.coef <- initial.values[[n.chains.i]]$b[1]
+
+          } else {
+            tmp.coef <- rnorm(1, mean = coefMat.model.id.orig[tmp.ind, 1], sd = coefMat.model.id.orig[tmp.ind, 2])
+          }
+
+          initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]] <-
+            c(initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]], tmp.coef)
+        }
+
+        for (Treat.name.i in 2:nof1$n.Treat) {
+
+          tmp.ind  <- grepl(paste0("]", nof1$Treat.name[Treat.name.i]), rownames(coefMat.model.id.orig))
+          # if there is no this treatment on this participant, generate grand mean
+          # minus 1 because of there is a reference treatment
+          if (sum(tmp.ind) == 0) {
+            if (nof1$model.intcpt == "fixed") {
+              tmp.coef <- initial.values[[n.chains.i]]$d[Treat.name.i - 1]
+            } else {
+              tmp.coef <- initial.values[[n.chains.i]]$b[Treat.name.i]
+            }
+          } else if (is.nan(coefMat.model.id.orig[tmp.ind, 2])) { # no standard error
+            if (nof1$model.intcpt == "fixed") {
+              tmp.coef <- initial.values[[n.chains.i]]$d[Treat.name.i - 1]
+            } else {
+              tmp.coef <- initial.values[[n.chains.i]]$b[Treat.name.i]
+            }
+
+          } else {
+            tmp.coef <- rnorm(1, mean = coefMat.model.id.orig[tmp.ind, 1], sd = coefMat.model.id.orig[tmp.ind, 2])
+          }
+          # if (length(tmp.coef) == 0) {
+          #   tmp.coef <- coef.model.id.orig[grepl(paste0("]", nof1$Treat.name[Treat.name.i]), names(coef.model.id.orig))]
+          # }
+
+          initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <-
+            c(initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]], tmp.coef)
+        }
+
+      }
+
+      # sigmaSq_d
+      if (nof1$model.intcpt == "fixed") {
+        tmp.betas <- NULL
+        initial.values[[n.chains.i]]$beta <- NULL
+      } else {
+        tmp.betas <- initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]]
+        initial.values[[n.chains.i]]$beta <- initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]]
+        initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]] <- NULL
+      }
 
       for (Treat.name.i in 2:nof1$n.Treat) {
+        tmp.betas <- c(tmp.betas, initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]])
 
-        tmp.ind  <- grepl(paste0("]", nof1$Treat.name[Treat.name.i]), rownames(coefMat.model.id.orig))
-        # if there is no this treatment on this participant, generate grand mean
-        # minus 1 because of there is a reference treatment
-        if (sum(tmp.ind) == 0) {
-          tmp.coef <- initial.values[[n.chains.i]]$d[Treat.name.i - 1]
-        } else {
-          tmp.coef <- rnorm(1, mean = coefMat.model.id.orig[tmp.ind, 1], sd = coefMat.model.id.orig[tmp.ind, 2])
-        }
-        # if (length(tmp.coef) == 0) {
-        #   tmp.coef <- coef.model.id.orig[grepl(paste0("]", nof1$Treat.name[Treat.name.i]), names(coef.model.id.orig))]
-        # }
-
-        initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <-
-          c(initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]], tmp.coef)
+        # assign values to beta matrix and remove those treatment specific beta's
+        initial.values[[n.chains.i]]$beta <- cbind(initial.values[[n.chains.i]]$beta, initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]])
+        initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
       }
 
-    }
-
-    # sigmaSq_d
-    tmp.betas <- NULL
-    initial.values[[n.chains.i]]$beta <- NULL
-    for (Treat.name.i in 2:nof1$n.Treat) {
-      tmp.betas <- c(tmp.betas, initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]])
-
-      # assign values to beta matrix and remove those treatment specific beta's
-      initial.values[[n.chains.i]]$beta <- cbind(initial.values[[n.chains.i]]$beta, initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]])
-      initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
-    }
-    initial.values[[n.chains.i]]$prec_delta <- 1 / var(tmp.betas)
+      if (nof1$model.intcpt == "fixed") {
+        initial.values[[n.chains.i]]$prec_delta <- 1 / var(tmp.betas)
+      } else {
+        initial.values[[n.chains.i]]$prec_beta <- 1 / var(tmp.betas)
+      }
+    } #  if (nof1$model.intcpt == "common") { else
 
     # se_resid
-    initial.values[[n.chains.i]]$prec_resid <- 1 / (summ.model$sigma)^2 * summ.model$df[2]/rchisq(1, df = summ.model$df[2])
+    # glm residuals not easily converted or extracted
+    # skip now
+    # initial.values[[n.chains.i]]$prec_resid <- 1 / (summ.model$sigma)^2 * summ.model$df[2]/rchisq(1, df = summ.model$df[2])
 
   } # n.chains.i
 
@@ -384,7 +467,11 @@ nof1.ma.normal.inits <- function(nof1, n.chains) {
 nof1.ma.poisson.inits <- function(nof1, n.chains) {
 
   if (is.null(nof1$names.covariates)) {
-    model <- glm(nof1$Y.long ~ -1 + nof1$ID + nof1$Treat, family = poisson(link = "log"))
+    if (nof1$model.intcpt == "fixed") {
+      model <- glm(nof1$Y.long ~ -1 + nof1$ID + nof1$Treat, family = poisson(link = "log"))
+    } else {
+      model <- glm(nof1$Y.long ~ -1 + nof1$Treat, family = poisson(link = "log"))
+    }
   } else {
     tmp.formula <- "nof1$Y.long ~ -1 + nof1$ID + nof1$Treat"
     for (covariates.i in 1:length(nof1$names.long.covariates)) {
@@ -402,35 +489,70 @@ nof1.ma.poisson.inits <- function(nof1, n.chains) {
 
     initial.values[[n.chains.i]]   <- list()
 
-    # d
-    initial.values[[n.chains.i]]$d <- NULL
-    for (Treat.name.i in 2:nof1$n.Treat) {
+    if (nof1$model.intcpt == "fixed") {
+      # d
+      initial.values[[n.chains.i]]$d <- NULL
+      for (Treat.name.i in 2:nof1$n.Treat) {
 
-      ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[Treat.name.i]), names.coef)
-      initial.values[[n.chains.i]]$d <- c(initial.values[[n.chains.i]]$d,
-                                          rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+        ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[Treat.name.i]), names.coef)
+        initial.values[[n.chains.i]]$d <- c(initial.values[[n.chains.i]]$d,
+                                            rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
 
-      # initialize beta
-      # initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
+        # initialize beta
+        # initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
+      }
+
+      # alpha
+      initial.values[[n.chains.i]]$alpha <- NULL
+      for (id.i in 1:nof1$n.ID) {
+
+        ind.coefMat <- grepl(nof1$uniq.ID[id.i], names.coef)
+        initial.values[[n.chains.i]]$alpha <- c(initial.values[[n.chains.i]]$alpha,
+                                                rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+      }
+
+    } else { # if (nof1$model.intcpt == "fixed") {
+      # b
+      initial.values[[n.chains.i]]$b <- NULL
+      for (n.Treat.i in 1:nof1$n.Treat) {
+        ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[n.Treat.i]), names.coef)
+        initial.values[[n.chains.i]]$b <- c(initial.values[[n.chains.i]]$b,
+                                            rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+      }
     }
 
-    # alpha, beta's
+    # beta's
     # beta and variance of beta are not settable
-    initial.values[[n.chains.i]]$alpha <- NULL
     for (id.i in 1:nof1$n.ID) {
-
-      ind.coefMat <- grepl(nof1$uniq.ID[id.i], names.coef)
-      initial.values[[n.chains.i]]$alpha <- c(initial.values[[n.chains.i]]$alpha,
-                                              rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
 
       # beta
       ind.id        <- which((nof1$ID == nof1$uniq.ID[id.i]) & (!is.na(nof1$Y.long)))
       if (length(unique(nof1$Treat[ind.id])) == 1) {
         model.id.orig <- glm(nof1$Y.long[ind.id] ~ 1, family = poisson(link = "log"))
       } else {
-        model.id.orig <- glm(nof1$Y.long[ind.id] ~ nof1$Treat[ind.id], family = poisson(link = "log"))
+        if (nof1$model.intcpt == "fixed") {
+          model.id.orig <- glm(nof1$Y.long[ind.id] ~ nof1$Treat[ind.id], family = poisson(link = "log"))
+        } else {
+          model.id.orig <- glm(nof1$Y.long[ind.id] ~ -1 + nof1$Treat[ind.id], family = poisson(link = "log"))
+        }
       }
       coefMat.model.id.orig <- coef(summary(model.id.orig))
+
+      if (nof1$model.intcpt == "random") {
+        tmp.ind  <- grepl(paste0("]", nof1$Treat.name[1]), rownames(coefMat.model.id.orig))
+        # if there is no this treatment on this participant, generate grand mean
+        # minus 1 because of there is a reference treatment
+        if (sum(tmp.ind) == 0) {
+          tmp.coef <- initial.values[[n.chains.i]]$b[1]
+        } else if (is.nan(coefMat.model.id.orig[tmp.ind, 2])) { # no standard error
+          tmp.coef <- initial.values[[n.chains.i]]$b[1]
+        } else {
+          tmp.coef <- rnorm(1, mean = coefMat.model.id.orig[tmp.ind, 1], sd = coefMat.model.id.orig[tmp.ind, 2])
+        }
+
+        initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]] <-
+          c(initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]], tmp.coef)
+      }
 
       for (Treat.name.i in 2:nof1$n.Treat) {
 
@@ -438,8 +560,19 @@ nof1.ma.poisson.inits <- function(nof1, n.chains) {
         # if there is no this treatment on this participant, generate grand mean
         # minus 1 because of there is a reference treatment
         if (sum(tmp.ind) == 0) {
-          tmp.coef <- initial.values[[n.chains.i]]$d[Treat.name.i - 1]
-        } else {
+          if (nof1$model.intcpt == "fixed") {
+            tmp.coef <- initial.values[[n.chains.i]]$d[Treat.name.i - 1]
+          } else {
+            tmp.coef <- initial.values[[n.chains.i]]$b[Treat.name.i]
+          }
+        }  else if (is.nan(coefMat.model.id.orig[tmp.ind, 2])) { # no standard error
+          if (nof1$model.intcpt == "fixed") {
+            tmp.coef <- initial.values[[n.chains.i]]$d[Treat.name.i - 1]
+          } else {
+            tmp.coef <- initial.values[[n.chains.i]]$b[Treat.name.i]
+          }
+
+        }else {
           tmp.coef <- rnorm(1, mean = coefMat.model.id.orig[tmp.ind, 1], sd = coefMat.model.id.orig[tmp.ind, 2])
         }
         # if (length(tmp.coef) == 0) {
@@ -453,8 +586,15 @@ nof1.ma.poisson.inits <- function(nof1, n.chains) {
     } # for (id.i in 1:nof1$n.ID) {
 
     # sigmaSq_d
-    tmp.betas <- NULL
-    initial.values[[n.chains.i]]$beta <- NULL
+    if (nof1$model.intcpt == "fixed") {
+      tmp.betas <- NULL
+      initial.values[[n.chains.i]]$beta <- NULL
+    } else {
+      tmp.betas <- initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]]
+      initial.values[[n.chains.i]]$beta <- initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]]
+      initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]] <- NULL
+    }
+
     for (Treat.name.i in 2:nof1$n.Treat) {
       tmp.betas <- c(tmp.betas, initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]])
 
@@ -462,7 +602,12 @@ nof1.ma.poisson.inits <- function(nof1, n.chains) {
       initial.values[[n.chains.i]]$beta <- cbind(initial.values[[n.chains.i]]$beta, initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]])
       initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
     }
-    initial.values[[n.chains.i]]$prec_delta <- 1 / var(tmp.betas)
+
+    if (nof1$model.intcpt == "fixed") {
+      initial.values[[n.chains.i]]$prec_delta <- 1 / var(tmp.betas)
+    } else {
+      initial.values[[n.chains.i]]$prec_beta <- 1 / var(tmp.betas)
+    }
 
   } # n.chains.i
 
@@ -475,7 +620,12 @@ nof1.ma.poisson.inits <- function(nof1, n.chains) {
 nof1.ma.binomial.inits <- function(nof1, n.chains) {
 
   if (is.null(nof1$names.covariates)) {
-    model <- glm(nof1$Y.long ~ -1 + nof1$ID + nof1$Treat, family = binomial(link = "logit"))
+    if (nof1$model.intcpt == "fixed") {
+      model <- glm(nof1$Y.long ~ -1 + nof1$ID + nof1$Treat, family = binomial(link = nof1$model.linkfunc))
+    } else {
+      model <- glm(nof1$Y.long ~ -1 + nof1$Treat, family = binomial(link = nof1$model.linkfunc))
+    }
+
   } else {
     tmp.formula <- "nof1$Y.long ~ -1 + nof1$ID + nof1$Treat"
     for (covariates.i in 1:length(nof1$names.long.covariates)) {
@@ -493,37 +643,73 @@ nof1.ma.binomial.inits <- function(nof1, n.chains) {
 
     initial.values[[n.chains.i]]   <- list()
 
-    # d
-    initial.values[[n.chains.i]]$d <- NULL
-    for (Treat.name.i in 2:nof1$n.Treat) {
+    if (nof1$model.intcpt == "fixed") {
+      # d
+      initial.values[[n.chains.i]]$d <- NULL
+      for (Treat.name.i in 2:nof1$n.Treat) {
 
-      ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[Treat.name.i]), names.coef)
-      initial.values[[n.chains.i]]$d <- c(initial.values[[n.chains.i]]$d,
-                                          rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+        ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[Treat.name.i]), names.coef)
+        initial.values[[n.chains.i]]$d <- c(initial.values[[n.chains.i]]$d,
+                                            rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
 
-      # initialize beta
-      # initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
+        # initialize beta
+        # initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
+      }
+
+      # alpha
+      initial.values[[n.chains.i]]$alpha <- NULL
+      for (id.i in 1:nof1$n.ID) {
+
+        ind.coefMat <- grepl(nof1$uniq.ID[id.i], names.coef)
+        initial.values[[n.chains.i]]$alpha <- c(initial.values[[n.chains.i]]$alpha,
+                                                rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+
+      }
+
+    } else { # if (nof1$model.intcpt == "fixed") {
+      # b
+      initial.values[[n.chains.i]]$b <- NULL
+      for (n.Treat.i in 1:nof1$n.Treat) {
+        ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[n.Treat.i]), names.coef)
+        initial.values[[n.chains.i]]$b <- c(initial.values[[n.chains.i]]$b,
+                                            rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+      }
     }
 
     # do not generate alpha and beta's
     # values will become really unstable for individual participants and the model will not fit
-    # alpha, beta's
+    # beta's
     # beta and variance of beta are not settable
-    initial.values[[n.chains.i]]$alpha <- NULL
     for (id.i in 1:nof1$n.ID) {
-
-      ind.coefMat <- grepl(nof1$uniq.ID[id.i], names.coef)
-      initial.values[[n.chains.i]]$alpha <- c(initial.values[[n.chains.i]]$alpha,
-                                              rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
 
       # beta
       ind.id        <- which((nof1$ID == nof1$uniq.ID[id.i]) & (!is.na(nof1$Y.long)))
       if (length(unique(nof1$Treat[ind.id])) == 1) {
-        model.id.orig <- glm(nof1$Y.long[ind.id] ~ 1, family = binomial(link = "logit"))
+        model.id.orig <- glm(nof1$Y.long[ind.id] ~ 1, family = binomial(link = nof1$model.linkfunc))
       } else {
-        model.id.orig <- glm(nof1$Y.long[ind.id] ~ nof1$Treat[ind.id], family = binomial(link = "logit"))
+        if (nof1$model.intcpt == "fixed") {
+          model.id.orig <- glm(nof1$Y.long[ind.id] ~ nof1$Treat[ind.id], family = binomial(link = nof1$model.linkfunc))
+        } else {
+          model.id.orig <- glm(nof1$Y.long[ind.id] ~ -1 + nof1$Treat[ind.id], family = binomial(link = nof1$model.linkfunc))
+        }
       }
       coefMat.model.id.orig <- coef(summary(model.id.orig))
+
+      if (nof1$model.intcpt == "random") {
+        tmp.ind  <- grepl(paste0("]", nof1$Treat.name[1]), rownames(coefMat.model.id.orig))
+        # if there is no this treatment on this participant, generate grand mean
+        # minus 1 because of there is a reference treatment
+        if (sum(tmp.ind) == 0) {
+          tmp.coef <- initial.values[[n.chains.i]]$b[1]
+        } else if (is.nan(coefMat.model.id.orig[tmp.ind, 2])) { # no standard error
+          tmp.coef <- initial.values[[n.chains.i]]$b[1]
+        } else {
+          tmp.coef <- rnorm(1, mean = coefMat.model.id.orig[tmp.ind, 1], sd = coefMat.model.id.orig[tmp.ind, 2])
+        }
+
+        initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]] <-
+          c(initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]], tmp.coef)
+      }
 
       for (Treat.name.i in 2:nof1$n.Treat) {
 
@@ -531,7 +717,18 @@ nof1.ma.binomial.inits <- function(nof1, n.chains) {
         # if there is no this treatment on this participant, generate grand mean
         # minus 1 because of there is a reference treatment
         if (sum(tmp.ind) == 0) {
-          tmp.coef <- initial.values[[n.chains.i]]$d[Treat.name.i - 1]
+          if (nof1$model.intcpt == "fixed") {
+            tmp.coef <- initial.values[[n.chains.i]]$d[Treat.name.i - 1]
+          } else {
+            tmp.coef <- initial.values[[n.chains.i]]$b[Treat.name.i]
+          }
+        } else if (is.nan(coefMat.model.id.orig[tmp.ind, 2])) { # no standard error
+          if (nof1$model.intcpt == "fixed") {
+            tmp.coef <- initial.values[[n.chains.i]]$d[Treat.name.i - 1]
+          } else {
+            tmp.coef <- initial.values[[n.chains.i]]$b[Treat.name.i]
+          }
+
         } else {
           tmp.coef <- rnorm(1, mean = coefMat.model.id.orig[tmp.ind, 1], sd = coefMat.model.id.orig[tmp.ind, 2])
         }
@@ -546,8 +743,15 @@ nof1.ma.binomial.inits <- function(nof1, n.chains) {
     } # for (id.i in 1:nof1$n.ID) {
 
     # sigmaSq_d
-    tmp.betas <- NULL
-    initial.values[[n.chains.i]]$beta <- NULL
+    if (nof1$model.intcpt == "fixed") {
+      tmp.betas <- NULL
+      initial.values[[n.chains.i]]$beta <- NULL
+    } else {
+      tmp.betas <- initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]]
+      initial.values[[n.chains.i]]$beta <- initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]]
+      initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]] <- NULL
+    }
+
     for (Treat.name.i in 2:nof1$n.Treat) {
       tmp.betas <- c(tmp.betas, initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]])
 
@@ -555,10 +759,89 @@ nof1.ma.binomial.inits <- function(nof1, n.chains) {
       initial.values[[n.chains.i]]$beta <- cbind(initial.values[[n.chains.i]]$beta, initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]])
       initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
     }
-    initial.values[[n.chains.i]]$prec_delta <- 1 / var(tmp.betas)
+
+    if (nof1$model.intcpt == "fixed") {
+      initial.values[[n.chains.i]]$prec_delta <- 1 / var(tmp.betas)
+    } else {
+      initial.values[[n.chains.i]]$prec_beta <- 1 / var(tmp.betas)
+    }
 
   } # n.chains.i
 
   return(initial.values)
 
 }
+
+
+
+nof1.ma.ordinal.inits <- function(nof1, n.chains) {
+
+  Y_matrix <- NULL
+  for (i in 1:nof1$ord.ncat) {
+    Y_matrix <- cbind(Y_matrix,
+                      as.numeric(nof1$Y.long == i))
+  }
+
+  # Treat.matrix <- NULL
+  # for(i in nof1$Treat.name[1:length(nof1$Treat.name)]){
+  #   Treat.matrix <- cbind(Treat.matrix, as.numeric(nof1$Treat == i))
+  # }
+
+  if (nof1$ord.model == "cumulative") {
+    fit <- vglm(Y_matrix ~ nof1$Treat, cumulative(parallel = nof1$ord.parallel))
+  } else {
+    fit <- vglm(Y_matrix ~ nof1$Treat, acat(parallel = nof1$ord.parallel))
+  }
+
+  co <- coef(summary(fit))
+  names.coef <- rownames(co)
+  vcov.coef  <- vcov(fit)
+
+  initial.values = list()
+  for(n.chains.i in 1:n.chains){
+
+    initial.values[[n.chains.i]] <- list()
+
+    # b
+    initial.values[[n.chains.i]]$b <- rnorm(1, mean = co[names.coef == "(Intercept):1", 1], sd = co[names.coef == "(Intercept):1", 2])
+    for (n.Treat.i in 2:nof1$n.Treat) {
+      if (nof1$ord.parallel) {
+        ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[n.Treat.i]), names.coef)
+      } else {
+        ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[n.Treat.i], ":1"), names.coef)
+      }
+      initial.values[[n.chains.i]]$b <- c(initial.values[[n.chains.i]]$b,
+                                          rnorm(1,
+                                                mean = co[ind.coefMat, 1] + co[names.coef == "(Intercept):1", 1],
+                                                sd   = sqrt(vcov.coef[names.coef == "(Intercept):1", names.coef == "(Intercept):1"] +
+                                                              vcov.coef[ind.coefMat, ind.coefMat] +
+                                                              2 * vcov.coef[names.coef == "(Intercept):1", ind.coefMat])))
+    }
+
+    for (ncat.i in 2:(nof1$ord.ncat-1)) {
+      tmp.b <- rnorm(1,
+                     mean = co[names.coef == paste0("(Intercept):", ncat.i), 1],
+                     sd = co[names.coef == paste0("(Intercept):", ncat.i), 2])
+
+      if (nof1$ord.parallel) {
+        tmp.b <- c(tmp.b, rep(NA, nof1$n.Treat - 1))
+      } else {
+        for (n.Treat.i in 2:nof1$n.Treat) {
+          ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[n.Treat.i], ":", ncat.i), names.coef)
+          tmp.b <- c(tmp.b,
+                     rnorm(1,
+                           mean = co[ind.coefMat, 1] + co[names.coef == paste0("(Intercept):", ncat.i), 1],
+                           sd   = sqrt(vcov.coef[names.coef == paste0("(Intercept):", ncat.i), names.coef == paste0("(Intercept):", ncat.i)] +
+                                         vcov.coef[ind.coefMat, ind.coefMat] +
+                                         2 * vcov.coef[names.coef == paste0("(Intercept):", ncat.i), ind.coefMat])))
+        }
+      }
+      initial.values[[n.chains.i]]$b <- rbind(initial.values[[n.chains.i]]$b, tmp.b)
+    }
+
+  } # n.chains.i
+
+  return(initial.values)
+
+}
+
