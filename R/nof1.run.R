@@ -235,6 +235,7 @@ jags.fit <- function(nof1, data, pars.save, inits, n.chains, max.run, setsize, n
   # set.seed(seed)
   mod = rjags::jags.model(textConnection(nof1$code), data = data, inits = inits, n.chains = n.chains, n.adapt = setsize)
 
+  # adapt model
   adapted <- FALSE
   count <- 0
   while(!adapted){
@@ -245,12 +246,15 @@ jags.fit <- function(nof1, data, pars.save, inits, n.chains, max.run, setsize, n
     }
   }
 
+  # draw samples
   samples <- rjags::coda.samples(model = mod, variable.names = pars.save, n.iter = setsize)
 
+  # check convergence
   max.gelman <- find.max.gelman(samples)
   print(max.gelman)
   check <- max.gelman > conv.limit
 
+  # draw samples until convergence
   if(check) {
     count <- 1
     while (check & (count < max.run/setsize)) {
@@ -265,6 +269,7 @@ jags.fit <- function(nof1, data, pars.save, inits, n.chains, max.run, setsize, n
     }
   }
 
+  # create the mcmc object
   start <- mcpar(samples[[1]])[1]
   end <- mcpar(samples[[1]])[2]
   mid <- (end + start-1)/2
@@ -272,6 +277,7 @@ jags.fit <- function(nof1, data, pars.save, inits, n.chains, max.run, setsize, n
   samples <- window(samples, start = mid+1, end = end, frequency = 1) #keep the last half of the converged sequence
   samples <- new.mcmc(samples)
 
+  # check if the samples reach the number of n.run
   n.thin <- 1
   if(check){
     stop("code didn't converge according to gelman-rubin diagnostics")
@@ -283,7 +289,7 @@ jags.fit <- function(nof1, data, pars.save, inits, n.chains, max.run, setsize, n
       samples <- add.mcmc(samples, samples2)
     }
     samples <- window(samples, 1, dim(samples[[1]])[1], n.thin)
-  } else if(n.run > burnin){
+  } else if(n.run >= burnin) {
     extra.run <- n.run - burnin
     samples2 <- rjags::coda.samples(mod, variable.names = pars.save, n.iter = extra.run)
     samples <- add.mcmc(samples, samples2)

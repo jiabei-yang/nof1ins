@@ -381,7 +381,7 @@ nof1.ma.normal.rjags <- function(nof1) {
   code <- paste0(code,
                  "\tfor (i in 1:n.ID) {\n\n")
 
-  if (nof1$model.intcpt == "fixed") {
+  if ((nof1$model.intcpt == "fixed") & (nof1$model.slp == "random")) {
     # Fixed intercepts (prior)
     code <- paste0(code,
                    "\t\talpha[i] ~ ", nof1$alpha.prior[[1]], "(", nof1$alpha.prior[[2]], ", ", nof1$alpha.prior[[3]], ")")
@@ -417,7 +417,7 @@ nof1.ma.normal.rjags <- function(nof1) {
     }
 
 
-  } else if (nof1$model.intcpt == "random") { # (nof1$model.intcpt == "random")
+  } else if ((nof1$model.intcpt == "random") & (nof1$model.slp == "random")) { # (nof1$model.intcpt == "random")
     code <- paste0(code,
                    "\t\tbeta[i, 1:n.Treat] ~ dmnorm.vcov(b[1:n.Treat], Sigma_beta[1:n.Treat, 1:n.Treat])\n")
     for (n.Treat.i in 1:nof1$n.Treat) {
@@ -439,40 +439,54 @@ nof1.ma.normal.rjags <- function(nof1) {
                  "\t\t\tY[j, i] ~ dnorm(mu[j, i], prec_resid)\n")
   # }
 
+  # not common intercept
   if (nof1$model.intcpt != "common") {
-    if (nof1$model.intcpt == "fixed") {
+
+    # fixed intercept, identity link
+    if ((nof1$model.intcpt == "fixed")) {
       code <- paste0(code,
                      "\t\t\tmu[j, i] <- alpha[i]")
+
+    # random intercept, identity link
     } else if (nof1$model.intcpt == "random") {
       code <- paste0(code,
                      "\t\t\tmu[j, i] <- beta_", nof1$Treat.name[1], "[i] * Treat_", nof1$Treat.name[1], "[j, i]")
     }
 
+    # random slopes
     if (nof1$n.Treat > 1) {
       for(Treat.name.i in 2:nof1$n.Treat){
         code <- paste0(code,
                        " + beta_", nof1$Treat.name[Treat.name.i], "[i] * Treat_", nof1$Treat.name[Treat.name.i], "[j, i]")
       }
     }
+    # cases not working yet: fixed and common slopes; other link functions
+
+  # common intercept
   } else { # if (nof1$model.intcpt != "common") {
 
+    # log link
     if (nof1$model.linkfunc == "log") {
       code <- paste0(code,
                      "\t\t\tmu[j, i] <- exp(lmu[j, i])\n")
+    # identity link
     } else {
       code <- paste0(code,
                      "\t\t\tmu[j, i] <- lmu[j, i]\n")
     }
 
+    # common intercept
     code <- paste0(code,
                    "\t\t\tlmu[j, i] <- beta_", nof1$Treat.name[1], " * Treat_", nof1$Treat.name[1], "[j, i]")
 
+    # common slopes
     if (nof1$n.Treat > 1) {
       for(Treat.name.i in 2:nof1$n.Treat){
         code <- paste0(code,
                        " + beta_", nof1$Treat.name[Treat.name.i], " * Treat_", nof1$Treat.name[Treat.name.i], "[j, i]")
       }
     }
+    # cases not working yet: fixed and random slopes;
   }
 
 
@@ -498,7 +512,7 @@ nof1.ma.normal.rjags <- function(nof1) {
                  "\tprec_resid ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n\n")
 
   # prior for treatment effect
-  if (nof1$model.intcpt == "fixed") {
+  if ((nof1$model.intcpt == "fixed") & (nof1$model.slp == "random")) {
     code <- paste0(code,
                    "\tprec_delta ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n")
     code <- paste0(code,
@@ -525,7 +539,7 @@ nof1.ma.normal.rjags <- function(nof1) {
       }
     }
 
-  } else if (nof1$model.intcpt == "random") { # if (nof1$model.intcpt == "fixed") {
+  } else if ((nof1$model.intcpt == "random") & (nof1$model.slp == "random")) { # if (nof1$model.intcpt == "fixed") {
 
     code <- paste0(code,
                    "\tprec_beta ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n")
@@ -579,7 +593,7 @@ nof1.ma.normal.rjags <- function(nof1) {
     code <- paste0(code,
                    "\t}\n") # for (k in 1:(n.Treat - 1)) {
 
-  } else if (nof1$model.intcpt == "common") {
+  } else if ((nof1$model.intcpt == "common") & (nof1$model.slp == "common")) {
 
     for(i in nof1$Treat.name){
       code <- paste0(code,

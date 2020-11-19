@@ -169,7 +169,8 @@ nof1.data <- function(Y, Treat, ord.baseline.Treat = NULL, ord.model = NULL, res
 
 
 # ID must be a complete vector with no missing values
-nof1.ma.data <- function(Y, Treat, baseline.Treat, ID, response, model.intcpt = "fixed", model.linkfunc = NULL,
+nof1.ma.data <- function(Y, Treat, baseline.Treat, ID, response,
+                         model.linkfunc = NULL, model.intcpt = "fixed", model.slp = "random",
                          ord.ncat = NULL, ord.model, ord.parallel = NULL,
                          covariates,
                          bs.trend = F, y.time = NULL, knots.bt.block = NULL, block.no = NULL, bs.df = NULL,
@@ -208,8 +209,9 @@ nof1.ma.data <- function(Y, Treat, baseline.Treat, ID, response, model.intcpt = 
                Treat.name = Treat.name,
                n.Treat    = length(Treat.name),
                response   = response,
+               model.linkfunc = model.linkfunc,
                model.intcpt   = model.intcpt,
-               model.linkfunc = model.linkfunc)
+               model.slp      = model.slp)
 
   if (response == "ordinal") {
     nof1 <- c(nof1,

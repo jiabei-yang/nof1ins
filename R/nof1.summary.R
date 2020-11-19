@@ -277,7 +277,7 @@ time_series_plot <- function(result, baseline.treat.name = NULL,
                              trial.start = NULL, trial.end = NULL, timestamp.format = NULL,
                              ...){
 
-  if (!is.null(trial.start)){
+  if (!is.null(trial.start)) {
 
     trial.start <- as.Date(trial.start, timestamp.format)
     trial.end   <- as.Date(trial.end, timestamp.format)
@@ -301,7 +301,12 @@ time_series_plot <- function(result, baseline.treat.name = NULL,
   treat.name <- result$nof1$Treat.name
   col.treat   <- paste0("beta_", treat.name)
   samples    <- do.call(rbind, result$samples)
-  median.beta <- apply(samples[, col.treat], 2, median)
+  if (length(col.treat) == 1) {
+    median.beta <- median(samples[, col.treat])
+  } else {
+    median.beta <- apply(samples[, col.treat], 2, median)
+  }
+
   treat.name.xundsc <- gsub("\\_", " ", treat.name)
 
   # model for each treatment
