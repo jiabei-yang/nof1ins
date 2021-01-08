@@ -157,7 +157,7 @@ nof1.ma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, sets
 
   } else {
     if (nof1$model.intcpt == "fixed") {
-      pars.save <- c("alpha", "d", "sigmaSq_d")
+      pars.save <- c("alpha", "d", "sigmaSq_d", "rho")
     } else if (nof1$model.intcpt == "random") {
       pars.save <- c("b", "sigmaSq_beta", "rho", paste0("beta_", nof1$Treat.name[1]))
     } else if (nof1$model.intcpt == "common") {
@@ -178,6 +178,11 @@ nof1.ma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, sets
     pars.save <- c(pars.save, paste0("beta_", nof1$names.covariates))
   }
 
+  # trend
+  if ((nof1$spline.trend) | (nof1$step.trend)) {
+    pars.save <- c(pars.save, "eta")
+  }
+
   # extra parameters
   if (!is.null(extra.pars.save)) {
     pars.save <- c(pars.save, extra.pars.save)
@@ -186,16 +191,15 @@ nof1.ma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, sets
   # Create data for fitting jags
   # Y <- nof1$Y
   data <- list(Y = nof1$Y)
-  # if (nof1$response == "ordinal") {
-  for (Treat.name.i in 1:length(nof1$Treat.name)) {
-    data[[paste0("Treat_", nof1$Treat.name[Treat.name.i])]] <- nof1[[paste0("Treat_", nof1$Treat.name[Treat.name.i])]]
+  if (nof1$model.intcpt != "fixed") {
+    for (Treat.name.i in 1:length(nof1$Treat.name)) {
+      data[[paste0("Treat_", nof1$Treat.name[Treat.name.i])]] <- nof1[[paste0("Treat_", nof1$Treat.name[Treat.name.i])]]
+    }
+  } else {
+    for (Treat.name.i in 2:length(nof1$Treat.name)) {
+      data[[paste0("Treat_", nof1$Treat.name[Treat.name.i])]] <- nof1[[paste0("Treat_", nof1$Treat.name[Treat.name.i])]]
+    }
   }
-  # }
-  # else {
-  #   for (Treat.name.i in 2:length(nof1$Treat.name)) {
-  #     data[[paste0("Treat_", nof1$Treat.name[Treat.name.i])]] <- nof1[[paste0("Treat_", nof1$Treat.name[Treat.name.i])]]
-  #   }
-  # }
 
   data$n.ID    <- nof1$n.ID
   data$nobs.ID <- nof1$nobs.ID
@@ -212,9 +216,135 @@ nof1.ma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, sets
     }
   }
 
+  # data on trend - splines
+  if (nof1$spline.trend) {
+    for (i in 1:nof1$spline_df){
+      data[[paste0("spline", i)]] <- nof1[[paste0("spline", i)]]
+    }
+    data$time <- nof1$time
+  }
+
+  # data on trend - steps
+  if (nof1$step.trend) {
+    for (i in nof1$n.steps){
+      data[[paste0("step", i)]] <- nof1[[paste0("step", i)]]
+    }
+  }
+
   # Initial values
   if (is.null(inits)) {
     inits <- nof1.ma.inits(nof1, n.chains)
+  }
+
+  # samples <- jags.fit(nof1, data, pars.save, NULL, n.chains = 3, max.run = 10^5, setsize = 10^4, n.run = 50000, conv.limit = 1.05)
+  samples <- jags.fit(nof1, data, pars.save, inits, n.chains, max.run, setsize, n.run, conv.limit)
+
+  result <- list(nof1 = nof1, inits = inits, pars.save = pars.save, data.rjags = data)
+  result <- c(result, samples)
+
+  class(result) <- "nof1.result"
+  return(result)
+
+}
+
+
+# Network meta analysis
+nof1.nma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, setsize = 10000, n.run = 50000,
+                         conv.limit = 1.05, extra.pars.save = NULL) {
+
+  # inits = NULL
+  # n.chains = 3
+  # max.run = 100000
+  # setsize = 10000
+  # n.run = 50000
+  # conv.limit = 1.05
+  # extra.pars.save = NULL
+
+  if (!inherits(nof1, "nof1.data")) {
+    stop('Given object is not nof1.data. Run nof1.data function first')
+  }
+
+  if (max.run < setsize) {
+    stop("setsize should be smaller than max.run")
+  }
+
+  # Create pars.save
+  # if (nof1$response == "ordinal") {
+  #   pars.save <- c("b", "sigmaSq_beta", "rho")
+  #   for(Treat.name.i in 1:length(nof1$Treat.name)){
+  #     pars.save <- c(pars.save, paste0("beta_", nof1$Treat.name[Treat.name.i]))
+  #   }
+  #
+  # } else {
+  if (nof1$model.intcpt == "fixed") {
+    pars.save <- c("alpha", "d", "prec_beta", paste0("beta_", 2:nrow(nof1$summ.nID.perTreat)))
+  } else if (nof1$model.intcpt == "random") {
+    pars.save <- c("b", "prec_beta", "rho", paste0("beta_", 1:nrow(nof1$summ.nID.perTreat)))
+  }
+  # else if (nof1$model.intcpt == "common") {
+  #     pars.save <- paste0("beta_", nof1$Treat.name[1])
+  #   }
+  # }
+
+  if(nof1$response == "normal"){
+    pars.save <- c(pars.save, "prec_resid")
+  }
+
+  # adjust for level 2 covariates
+  if (!is.null(nof1$cov.matrix)) {
+    pars.save <- c(pars.save, "eta_cov")
+  }
+
+  # trend
+  if ((nof1$spline.trend) | (nof1$step.trend)) {
+    pars.save <- c(pars.save, "eta")
+  }
+
+  # extra parameters
+  if (!is.null(extra.pars.save)) {
+    pars.save <- c(pars.save, extra.pars.save)
+  }
+
+  # Create data for fitting jags
+  # Y <- nof1$Y
+  data <- list(Y.matrix = nof1$Y.matrix,
+               nobs.ID  = nof1$nobs.ID,
+               uniq.Treat.matrix = nof1$uniq.Treat.matrix)
+  if (nof1$model.intcpt == "random") {
+    data$Treat.1       <- nof1$Treat.1
+    data$Treat.order.1 <- nof1$Treat.order.1
+  }
+  for (Treat.i in 2:nrow(nof1$summ.nID.perTreat)) {
+    data[[paste0("Treat.",  Treat.i)]]       <- nof1[[paste0("Treat.", Treat.i)]]
+  }
+
+  for (Treat.i in 2:length(nof1$Treat.name)) {
+    data[[paste0("Treat.order.",  Treat.i)]] <- nof1[[paste0("Treat.order.", Treat.i)]]
+  }
+  # if (nof1$response == "ordinal") {
+  #   data$ord.ncat <- nof1$ord.ncat
+  # }
+
+  # data on level 2 covariates
+  if (!is.null(nof1$cov.matrix)) {
+    data$cov.matrix <- nof1$cov.matrix
+  }
+
+  # data on trend - splines
+  if (nof1$spline.trend) {
+    data$spline.matrix <- nof1$spline.matrix
+    data$time.matrix   <- nof1$time.matrix
+  }
+
+  # data on trend - steps
+  if (nof1$step.trend) {
+    data$step.matrix   <- nof1$step.matrix
+    data$period.matrix <- nof1$period.matrix
+  }
+
+  # Initial values
+  if (is.null(inits)) {
+    inits <- nof1.nma.inits(nof1, n.chains)
   }
 
   # samples <- jags.fit(nof1, data, pars.save, NULL, n.chains = 3, max.run = 10^5, setsize = 10^4, n.run = 50000, conv.limit = 1.05)
@@ -247,7 +377,7 @@ jags.fit <- function(nof1, data, pars.save, inits, n.chains, max.run, setsize, n
   }
 
   # draw samples
-  samples <- rjags::coda.samples(model = mod, variable.names = pars.save, n.iter = setsize)
+  samples <- rjags::coda.samples(model = mod, variable.names = pars.save, n.iter  = setsize)
 
   # check convergence
   max.gelman <- find.max.gelman(samples)
@@ -281,7 +411,7 @@ jags.fit <- function(nof1, data, pars.save, inits, n.chains, max.run, setsize, n
   n.thin <- 1
   if(check){
     stop("code didn't converge according to gelman-rubin diagnostics")
-  } else if(n.run < burnin){
+  } else if (n.run < burnin) {
     n.thin <- ceiling(burnin/n.run)
     extra.run <- n.run * n.thin - burnin
     if(extra.run != 0){
@@ -289,15 +419,19 @@ jags.fit <- function(nof1, data, pars.save, inits, n.chains, max.run, setsize, n
       samples <- add.mcmc(samples, samples2)
     }
     samples <- window(samples, 1, dim(samples[[1]])[1], n.thin)
-  } else if(n.run >= burnin) {
+  } else if (n.run > burnin) {
     extra.run <- n.run - burnin
     samples2 <- rjags::coda.samples(mod, variable.names = pars.save, n.iter = extra.run)
     samples <- add.mcmc(samples, samples2)
   }
+
+  # find DIC
+  dic <- dic.samples(mod, n.iter = 10^4)
+
   max.gelman <- find.max.gelman(samples)
   print(max.gelman)
 
-  out <-list(burnin = burnin, n.thin = n.thin, samples = samples, max.gelman = max.gelman)
+  out <-list(burnin = burnin, n.thin = n.thin, samples = samples, max.gelman = max.gelman, dic = dic)
   return(out)
 }
 

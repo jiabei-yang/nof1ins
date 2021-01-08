@@ -130,7 +130,7 @@ nof1.data <- function(Y, Treat, ord.baseline.Treat = NULL, ord.model = NULL, res
 
     nof1$bs_df <- ncol(bs.design.matrix)
 
-    # Save the columns in the bs.design.matrix in nof1 as Treat_*
+    # Save the columns in the bs.design.matrix in nof1 as bs*
     for (i in 1:(nof1$bs_df)){
       nof1[[paste0("bs", i)]] <- bs.design.matrix[, i]
     }
@@ -173,17 +173,22 @@ nof1.ma.data <- function(Y, Treat, baseline.Treat, ID, response,
                          model.linkfunc = NULL, model.intcpt = "fixed", model.slp = "random",
                          ord.ncat = NULL, ord.model, ord.parallel = NULL,
                          covariates,
-                         bs.trend = F, y.time = NULL, knots.bt.block = NULL, block.no = NULL, bs.df = NULL,
+                         spline.trend = F, trend.type, y.time = NULL, knots = NULL, trend.df = NULL,
+                         step.trend = F, y.step = NULL,
                          corr.y = F,
                          alpha.prior = NULL, beta.prior = NULL, eta.prior = NULL, dc.prior = NULL, c1.prior = NULL,
                          rho.prior = NULL, hy.prior = NULL, ...) {
 
+  # Y: must be sorted according to ID, day
   # ID: same ID should stick together
   # model.intcpt: "random" or "fixed". Currently, only work for normal outcome.
   # covariates: lists of covariates, categorical covariates must be of factor type
   #             need to be careful about the covariate names, both treatment and covariate names are used to identify initial values
   # ord.ncat: number of levels in ordinal outcome
   # ord.parallel: logical. Whether the adjacent category model is restricted (same as parameter parallel in vglm).
+  # knots: specify knots rather than knots between blocks bc people might have different block break points
+  # step.trend: do step functions for each period
+  # y.step: same length as y, corresponding to the periods, start from 1, integer values
 
   Treat.name <- sort(unique(Treat))
   if (!is.null(baseline.Treat)) {
@@ -284,6 +289,95 @@ nof1.ma.data <- function(Y, Treat, baseline.Treat, ID, response,
     } # covariate.i
   } # covariates exist
 
+  # Indicators for whether adjusting for trend and correlation in the model
+  nof1 <- c(nof1,
+            spline.trend = spline.trend,
+            step.trend = step.trend,
+            corr.y     = corr.y)
+
+  # for splines
+  # Default knots at end of each block
+  if (spline.trend) {
+
+    # center y.time
+    uniq.y.time <- sort(unique(y.time))
+    cent.y.time <- uniq.y.time - mean(uniq.y.time, na.rm = T)
+
+    # currently only have the option: knots at the end of each block
+    if (!is.null(trend.df)) {
+
+      spline.design.matrix <- bs(cent.y.time, df = bs.df, ...)
+      spline.long.design.matrix <- spline.design.matrix[y.time, ]
+
+    } else {
+
+      cent.knots <- knots - mean(uniq.y.time)
+
+      if (trend.type == "bs") {
+        spline.design.matrix <- bs(cent.y.time, knots = cent.knots, ...)
+      } else if (trend.type == "ns") {
+        spline.design.matrix <- ns(cent.y.time, knots = cent.knots, ...)
+      }
+
+      spline.long.design.matrix <- spline.design.matrix[y.time, ]
+
+    }
+
+    # remove the column if there is a single value in the column on non-missing dates
+    # we still have the same knots, but the coefficients for the columns with a single value will be 0
+    # save in these temporary matrix because the column index will change due to removing columns
+    tmp.spline.design.matrix <- NULL
+    tmp.spline.long.design.matrix <- NULL
+
+    for (i in 1:ncol(spline.design.matrix)) {
+
+      if (length(unique(spline.long.design.matrix[!is.na(Y), i])) != 1) {
+        tmp.spline.design.matrix <- cbind(tmp.spline.design.matrix, spline.design.matrix[, i])
+        tmp.spline.long.design.matrix <- cbind(tmp.spline.long.design.matrix, spline.long.design.matrix[, i])
+      }
+    }
+
+    spline.design.matrix      <- tmp.spline.design.matrix
+    spline.long.design.matrix <- tmp.spline.long.design.matrix
+    nof1$spline_df <- ncol(spline.design.matrix)
+
+    # Save the columns in the spline.design.matrix in nof1 as bs*
+    for (i in 1:(nof1$spline_df)){
+
+      nof1[[paste0("spline", i)]] <- spline.design.matrix[, i]
+      # used to find initial values
+      nof1[[paste0("spline.long", i)]] <- spline.long.design.matrix[, i]
+
+    }
+
+    # create time index matrix incase there are multiple measurements on the same day
+    time <- matrix(NA, nrow = max.obs.ID, ncol = n.ID)
+    for (ID.i in 1:n.ID) {
+      time[1:nobs.ID[ID.i], ID.i] <- y.time[ID == uniq.ID[ID.i]]
+    }
+    nof1$time <- time
+  }
+
+  # for step functions
+  if (step.trend) {
+
+    nof1$n.steps <- 2:max(y.step)
+    nof1$y.step  <- y.step
+    # produce steps from the second period
+    for (step.i in nof1$n.steps) {
+      assign(paste0("step", step.i), NULL)
+
+      for (ID.i in 1:n.ID) {
+        assign(paste0("step", step.i),
+               cbind(get(paste0("step", step.i)),
+                     c(as.numeric(y.step[ID == uniq.ID[ID.i]] == step.i), rep(NA, max.obs.ID - nobs.ID[ID.i]))))
+
+      }
+      nof1[[paste0("step", step.i)]] <- get(paste0("step", step.i))
+    } # for (step.i in 2:max(y.step)) {
+
+  } # if (step.trend)
+
   prior.param <- list(response = response, dc.prior = dc.prior, c1.prior = c1.prior, alpha.prior = alpha.prior, beta.prior = beta.prior, eta.prior = eta.prior, hy.prior = hy.prior, rho.prior = rho.prior)
   prior.data <- nof1.prior.default(prior.param)
   nof1 <- c(nof1, prior.data)
@@ -295,3 +389,237 @@ nof1.ma.data <- function(Y, Treat, baseline.Treat, ID, response,
   class(nof1) <- "nof1.data"
   return(nof1)
 }
+
+
+
+# ID must be a complete vector with no missing values
+nof1.nma.data <- function(Y, Treat, baseline.Treat, ID, response,
+                          model.linkfunc = NULL, model.intcpt = "fixed", model.slp = "random",
+                          ord.ncat = NULL, ord.model, ord.parallel = NULL,
+                          lvl2.cov = NULL,
+                          spline.trend = F, trend.type, y.time = NULL, knots = NULL, trend.df = NULL,
+                          step.trend = F, y.step = NULL,
+                          corr.y = F,
+                          alpha.prior = NULL, beta.prior = NULL, eta.prior = NULL, dc.prior = NULL, c1.prior = NULL,
+                          rho.prior = NULL, hy.prior = NULL, ...) {
+
+  # lvl2.cov: participant level covariates. must be a dataframe even if only one column
+  #           can only have interaction with treatment effect because participant have specific intercept already in the fixed intercept model
+  #           in the random intercept model it will have interaction with treatment anyway
+
+  data.long <- data.frame(ID, Treat, Y)
+
+  # Treatment levels, removed treatment with all NA's in outcome Y
+  Treat.name <- as.character(sort(unique(data.long$Treat[!is.na(data.long$Y)])))
+  if (!is.null(baseline.Treat)) {
+    Treat.name <- c(baseline.Treat, as.character(Treat.name[Treat.name != baseline.Treat]))
+  }
+  # Relevel the treatment
+  data.long <- data.long %>%
+    mutate(Treat = factor(Treat, Treat.name))
+
+  # summary by ID
+  summ.ID <- data.long %>%
+    group_by(ID) %>%
+    summarise(nobs = sum(!is.na(Y)),
+              n_Treat = length(unique(Treat[!is.na(Y)]))) %>%
+    arrange(n_Treat) # order by the # of treatment
+  max.obs.ID <- max(summ.ID$nobs)
+
+  summ.nID.perTreat <- summ.ID %>%
+    group_by(n_Treat) %>%
+    summarise(n_ID_perNTreat = n()) %>%
+    arrange(n_Treat)
+  max.Treat.ID <- max(summ.nID.perTreat$n_Treat)
+
+  tmp.n.Treat <- data.frame(n_Treat = 1:max.Treat.ID)
+  summ.nID.perTreat <- tmp.n.Treat %>%
+    left_join(summ.nID.perTreat, by = "n_Treat")
+  summ.nID.perTreat <- summ.nID.perTreat %>%
+    mutate(n_ID_perNTreat = ifelse(is.na(n_ID_perNTreat), 0, n_ID_perNTreat))
+
+  # summ.ID ordered by the number of treatment each participant has
+  nof1 <- list(data.long  = data.long,
+               summ.ID    = summ.ID,
+               nobs.ID    = summ.ID$nobs,
+               summ.nID.perTreat = summ.nID.perTreat,
+               Treat.name = Treat.name,
+               response   = response,
+               model.linkfunc = model.linkfunc,
+               model.intcpt   = model.intcpt,
+               model.slp      = model.slp)
+
+  # Generate outcome, treatment matrix, and treatment indicator matrix
+  Y.matrix     <- matrix(NA, nrow = max.obs.ID, ncol = nrow(summ.ID))
+  Treat.matrix <- matrix(NA, nrow = max.obs.ID, ncol = nrow(summ.ID))
+  uniq.Treat.matrix <- matrix(NA, nrow = max.Treat.ID, ncol = nrow(summ.ID))
+  for (Treat.i in 1:nrow(summ.nID.perTreat)) {
+    nof1[[paste0("Treat.", Treat.i)]] <- matrix(NA, nrow = max.obs.ID, ncol = nrow(summ.ID))
+  }
+
+  for (ID.i in 1:nrow(summ.ID)) {
+    Y.matrix[1:summ.ID$nobs[ID.i], ID.i] <- data.long$Y[(ID == summ.ID$ID[ID.i]) & (!is.na(data.long$Y))]
+    Treat.matrix[1:summ.ID$nobs[ID.i], ID.i] <- as.numeric(data.long$Treat[(ID == summ.ID$ID[ID.i]) & (!is.na(data.long$Y))])
+
+    tmp.Treat <- sort(unique(Treat.matrix[1:summ.ID$nobs[ID.i], ID.i]))
+    uniq.Treat.matrix[1:summ.ID$n_Treat[ID.i], ID.i] <- tmp.Treat
+    for (Treat.i in 1:summ.ID$n_Treat[ID.i]) {
+      nof1[[paste0("Treat.", Treat.i)]][1:summ.ID$nobs[ID.i], ID.i] <- as.numeric(Treat.matrix[1:summ.ID$nobs[ID.i], ID.i] == tmp.Treat[Treat.i])
+    }
+  }
+  nof1$Y.matrix <- Y.matrix
+  nof1$Treat.matrix <- Treat.matrix
+  nof1$uniq.Treat.matrix <- uniq.Treat.matrix
+
+  # Indicators for whether adjusting for trend and correlation in the model
+  nof1 <- c(nof1,
+            spline.trend = spline.trend,
+            step.trend   = step.trend,
+            corr.y       = corr.y)
+
+  # splines
+  if (spline.trend) {
+
+    nof1$data.long$Y_time <- y.time
+    # center y.time
+    uniq.y.time <- sort(unique(y.time))
+    cent.y.time <- uniq.y.time - mean(uniq.y.time, na.rm = T)
+
+    # currently only have the option: knots at the end of each block
+    if (!is.null(trend.df)) {
+
+      spline.matrix <- bs(cent.y.time, df = bs.df, ...)
+      spline.long.matrix <- spline.matrix[y.time, ]
+
+    } else {
+
+      cent.knots <- knots - mean(uniq.y.time)
+
+      if (trend.type == "bs") {
+        spline.matrix <- bs(cent.y.time, knots = cent.knots, ...)
+      } else if (trend.type == "ns") {
+        spline.matrix <- ns(cent.y.time, knots = cent.knots, ...)
+      }
+
+      spline.long.matrix <- spline.matrix[y.time, ]
+
+    }
+
+    # remove the column if there is a single value in the column on non-missing dates
+    # we still have the same knots, but the coefficients for the columns with a single value will be 0
+    # save in these temporary matrix because the column index will change due to removing columns
+    tmp.spline.matrix <- NULL
+    tmp.spline.long.matrix <- NULL
+
+    for (i in 1:ncol(spline.matrix)) {
+
+      if (length(unique(spline.long.matrix[!is.na(Y), i])) != 1) {
+        tmp.spline.matrix <- cbind(tmp.spline.matrix, spline.matrix[, i])
+        tmp.spline.long.matrix <- cbind(tmp.spline.long.matrix, spline.long.matrix[, i])
+      }
+    }
+
+    spline.matrix      <- tmp.spline.matrix
+    spline.long.matrix <- tmp.spline.long.matrix
+
+    # Save spline.matrix in nof1
+    nof1$spline.df          <- ncol(spline.matrix)
+    nof1$spline.matrix      <- spline.matrix
+    nof1$spline.long.matrix <- spline.long.matrix
+
+    # create time index matrix incase there are multiple measurements on the same day
+    time.matrix <- matrix(NA, nrow = max.obs.ID, ncol = nrow(summ.ID))
+    for (ID.i in 1:nrow(summ.ID)) {
+      time.matrix[1:summ.ID$nobs[ID.i], ID.i] <- nof1$data.long$Y_time[(ID == summ.ID$ID[ID.i]) & (!is.na(nof1$data.long$Y))]
+    }
+    nof1$time.matrix <- time.matrix
+  }
+
+  # Step function
+  if (step.trend) {
+
+    nof1$data.long$Y_step <- y.step
+    # NEED TO TEST WHEN THERE ARE NA's in OUTCOME Y
+    step.matrix <- diag(length(unique(y.step[!is.na(Y)])))[, -1]
+    step.long.matrix <- step.matrix[y.step, ]
+
+    # Save spline.matrix in nof1
+    nof1$step.df          <- ncol(step.matrix)
+    nof1$step.matrix      <- step.matrix
+    nof1$step.long.matrix <- step.long.matrix
+
+    # create period matrix
+    period.matrix <- matrix(NA, nrow = max.obs.ID, ncol = nrow(summ.ID))
+    for (ID.i in 1:nrow(summ.ID)) {
+      period.matrix[1:summ.ID$nobs[ID.i], ID.i] <- nof1$data.long$Y_step[(ID == summ.ID$ID[ID.i]) & (!is.na(nof1$data.long$Y))]
+    }
+    nof1$period.matrix <- period.matrix
+
+  }
+
+  # participant level covariates
+  if (!is.null(lvl2.cov)) {
+
+    nof1$data.long <- cbind(data.long, lvl2.cov)
+    colnames.cov <- paste0("cov", 1:ncol(lvl2.cov))
+    colnames(nof1$data.long)[(ncol(nof1$data.long) - ncol(lvl2.cov) + 1):ncol(nof1$data.long)] <- colnames.cov
+
+    lvl2.cov.wizId <- nof1$data.long[!duplicated(nof1$data.long[, c("ID", colnames.cov)]), c("ID", colnames.cov)]
+
+    # need to justify the covariates are participant level covariate
+    if (nrow(lvl2.cov.wizId) != length(nof1$nobs.ID)) {
+      stop("lvl2.cov must be second level covariates")
+    }
+
+    nof1$summ.ID <- nof1$summ.ID %>%
+      left_join(lvl2.cov.wizId, by = "ID")
+    nonDup.lvl2.cov <- data.frame(nof1$summ.ID[, colnames.cov])
+    for (cov.i in 1:ncol(nonDup.lvl2.cov)) {
+
+      # for factor covariates, create dummy variables
+      if (is.factor(nonDup.lvl2.cov[, cov.i])) {
+
+        tmp.cov.lvls <- levels(nonDup.lvl2.cov[, cov.i])
+        for (cov.lvls.i in 2:length(tmp.cov.lvls)) {
+          nof1$cov.matrix <- rbind(nof1$cov.matrix,
+                                   as.numeric(nonDup.lvl2.cov[, cov.i] == tmp.cov.lvls[cov.lvls.i]))
+        }
+
+      } else { # continuous covariates
+        nof1$cov.matrix <- rbind(nof1$cov.matrix,
+                                 nonDup.lvl2.cov[, cov.i])
+      }
+
+    } # for (cov.i in 1:ncol(nonDup.lvl2.cov)) {
+
+    nof1$n.cov <- ncol(lvl2.cov)
+    nof1$n.cov.model <- nrow(nof1$cov.matrix)
+
+    # create actual ordered treatment matrix
+    # because nof1$Treat.x may correspond to different treatment, the interaction term is with the actual treatment
+    for (Treat.i in 1:length(nof1$Treat.name)) {
+      nof1[[paste0("Treat.order.", Treat.i)]] <- matrix(NA, nrow = max.obs.ID, ncol = nrow(summ.ID))
+    }
+
+    for (ID.i in 1:nrow(summ.ID)) {
+      for (Treat.i in 1:length(nof1$Treat.name)) {
+        nof1[[paste0("Treat.order.", Treat.i)]][1:summ.ID$nobs[ID.i], ID.i] <- as.numeric(Treat.matrix[1:summ.ID$nobs[ID.i], ID.i] == Treat.i)
+      }
+    }
+
+  } # if (!is.null(lvl2.cov)) {
+
+  prior.param <- list(response = response, dc.prior = dc.prior, c1.prior = c1.prior, alpha.prior = alpha.prior, beta.prior = beta.prior, eta.prior = eta.prior, hy.prior = hy.prior, rho.prior = rho.prior)
+  prior.data <- nof1.prior.default(prior.param)
+  nof1 <- c(nof1, prior.data)
+
+  code <- nof1.nma.rjags(nof1)
+  nof1$code <- code
+  # cat(code)
+
+  class(nof1) <- "nof1.data"
+  return(nof1)
+
+}
+
+

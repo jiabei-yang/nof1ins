@@ -282,7 +282,7 @@ nof1.ma.inits <- function(nof1, n.chains) {
 
   # if (!is.null(initial.values)) {
   # if initial value generated is too big (i.e. model didn't work because of sparse data), just set inital value to be NULL
-  if(any(abs(unlist(initial.values)) > 100, na.rm = T)) {
+  if (any(abs(unlist(initial.values)) > 100, na.rm = T)) {
     initial.values <- NULL
   }
   # }
@@ -294,20 +294,31 @@ nof1.ma.inits <- function(nof1, n.chains) {
 
 nof1.ma.normal.inits <- function(nof1, n.chains) {
 
-  if (is.null(nof1$names.covariates)) {
-    if (nof1$model.intcpt == "fixed") {
-      model <- glm(nof1$Y.long ~ -1 + nof1$ID + nof1$Treat, family = gaussian(link = nof1$model.linkfunc))
-    } else {
-      model <- glm(nof1$Y.long ~ -1 + nof1$Treat, family = gaussian(link = nof1$model.linkfunc))
-    }
-
-  } else {
+  if (nof1$model.intcpt == "fixed") {
     tmp.formula <- "nof1$Y.long ~ -1 + nof1$ID + nof1$Treat"
+  } else if (nof1$model.intcpt == "random") {
+    tmp.formula <- "nof1$Y.long ~ -1 + nof1$Treat"
+  }
+
+  if (!is.null(nof1$names.covariates)) {
     for (covariates.i in 1:length(nof1$names.long.covariates)) {
       tmp.formula <- paste0(tmp.formula, " + nof1$", nof1$names.long.covariates[covariates.i])
     }
-    model <- glm(as.formula(tmp.formula), family = gaussian(link = nof1$model.linkfunc))
   }
+
+  if (nof1$spline.trend) {
+    for (spline_df.i in 1:nof1$spline_df) {
+      tmp.formula <- paste0(tmp.formula, " + nof1$spline.long", spline_df.i)
+    }
+  }
+
+  if (nof1$step.trend) {
+    for (step.i in nof1$n.steps) {
+      tmp.formula <- paste0(tmp.formula, " + (nof1$y.step == ", step.i, ")")
+    }
+  }
+
+  model <- glm(as.formula(tmp.formula), family = gaussian(link = nof1$model.linkfunc))
 
   summ.model    <- summary(model)
   coefMat.model <- coef(summ.model)
@@ -424,7 +435,7 @@ nof1.ma.normal.inits <- function(nof1, n.chains) {
             c(initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]], tmp.coef)
         }
 
-      }
+      } # for id.i
 
       # sigmaSq_d
       if (nof1$model.intcpt == "fixed") {
@@ -440,7 +451,7 @@ nof1.ma.normal.inits <- function(nof1, n.chains) {
         tmp.betas <- c(tmp.betas, initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]])
 
         # assign values to beta matrix and remove those treatment specific beta's
-        initial.values[[n.chains.i]]$beta <- cbind(initial.values[[n.chains.i]]$beta, initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]])
+        initial.values[[n.chains.i]]$beta <- cbind(initial.values[[n.chains.i]][["beta", exact = TRUE]], initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]])
         initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
       }
 
@@ -450,6 +461,41 @@ nof1.ma.normal.inits <- function(nof1, n.chains) {
         initial.values[[n.chains.i]]$prec_beta <- 1 / var(tmp.betas)
       }
     } #  if (nof1$model.intcpt == "common") { else
+
+
+    # adjust for trend - splines
+    if (nof1$spline.trend) {
+      # eta
+      initial.values[[n.chains.i]]$eta <- NULL
+      for (eta.i in 1:nof1$spline_df) {
+
+        ind.coefMat <- grepl(paste0("spline.long", eta.i), names.coef)
+        initial.values[[n.chains.i]]$eta <- c(initial.values[[n.chains.i]]$eta,
+                                              rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+        # initialize beta
+        # initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
+      }
+
+      initial.values[[n.chains.i]]$eta[initial.values[[n.chains.i]]$eta > 100] <- 100
+      initial.values[[n.chains.i]]$eta[initial.values[[n.chains.i]]$eta < -100] <- -100
+    }
+
+    # adjust for trend - steps
+    if (nof1$step.trend) {
+      # eta
+      initial.values[[n.chains.i]]$eta <- NULL
+      for (eta.i in nof1$n.steps) {
+
+        ind.coefMat <- grepl(paste0("y.step == ", eta.i), names.coef)
+        initial.values[[n.chains.i]]$eta <- c(initial.values[[n.chains.i]]$eta,
+                                              rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+        # initialize beta
+        # initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
+      }
+
+      initial.values[[n.chains.i]]$eta[initial.values[[n.chains.i]]$eta > 100] <- 100
+      initial.values[[n.chains.i]]$eta[initial.values[[n.chains.i]]$eta < -100] <- -100
+    }
 
     # se_resid
     # glm residuals not easily converted or extracted
@@ -466,19 +512,25 @@ nof1.ma.normal.inits <- function(nof1, n.chains) {
 
 nof1.ma.poisson.inits <- function(nof1, n.chains) {
 
-  if (is.null(nof1$names.covariates)) {
-    if (nof1$model.intcpt == "fixed") {
-      model <- glm(nof1$Y.long ~ -1 + nof1$ID + nof1$Treat, family = poisson(link = "log"))
-    } else {
-      model <- glm(nof1$Y.long ~ -1 + nof1$Treat, family = poisson(link = "log"))
-    }
-  } else {
+  if (nof1$model.intcpt == "fixed") {
     tmp.formula <- "nof1$Y.long ~ -1 + nof1$ID + nof1$Treat"
+  } else if (nof1$model.intcpt == "random") {
+    tmp.formula <- "nof1$Y.long ~ -1 + nof1$Treat"
+  }
+
+  if (!is.null(nof1$names.covariates)) {
     for (covariates.i in 1:length(nof1$names.long.covariates)) {
       tmp.formula <- paste0(tmp.formula, " + nof1$", nof1$names.long.covariates[covariates.i])
     }
-    model <- glm(as.formula(tmp.formula), family = poisson(link = "log"))
   }
+
+  if (nof1$spline.trend) {
+    for (bs_df.i in 1:nof1$spline_df) {
+      tmp.formula <- paste0(tmp.formula, " + nof1$spline.long", bs_df.i)
+    }
+  }
+
+  model <- glm(as.formula(tmp.formula), family = poisson(link = nof1$model.linkfunc))
 
   summ.model    <- summary(model)
   coefMat.model <- coef(summ.model)
@@ -511,7 +563,7 @@ nof1.ma.poisson.inits <- function(nof1, n.chains) {
                                                 rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
       }
 
-    } else { # if (nof1$model.intcpt == "fixed") {
+    } else if (nof1$model.intcpt == "random") { # if (nof1$model.intcpt == "fixed") {
       # b
       initial.values[[n.chains.i]]$b <- NULL
       for (n.Treat.i in 1:nof1$n.Treat) {
@@ -589,7 +641,7 @@ nof1.ma.poisson.inits <- function(nof1, n.chains) {
     if (nof1$model.intcpt == "fixed") {
       tmp.betas <- NULL
       initial.values[[n.chains.i]]$beta <- NULL
-    } else {
+    } else if (nof1$model.intcpt == "random") {
       tmp.betas <- initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]]
       initial.values[[n.chains.i]]$beta <- initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]]
       initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]] <- NULL
@@ -599,15 +651,32 @@ nof1.ma.poisson.inits <- function(nof1, n.chains) {
       tmp.betas <- c(tmp.betas, initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]])
 
       # assign values to beta matrix and remove those treatment specific beta's
-      initial.values[[n.chains.i]]$beta <- cbind(initial.values[[n.chains.i]]$beta, initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]])
+      initial.values[[n.chains.i]]$beta <- cbind(initial.values[[n.chains.i]][["beta", exact = T]], initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]])
       initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
     }
 
     if (nof1$model.intcpt == "fixed") {
       initial.values[[n.chains.i]]$prec_delta <- 1 / var(tmp.betas)
-    } else {
+    } else if (nof1$model.intcpt == "random") {
       initial.values[[n.chains.i]]$prec_beta <- 1 / var(tmp.betas)
     }
+
+    # adjust for trend - splines
+    if (nof1$spline.trend) {
+      # eta
+      initial.values[[n.chains.i]]$eta <- NULL
+      for (eta.i in 1:nof1$spline_df) {
+
+        ind.coefMat <- grepl(paste0("spline.long", eta.i), names.coef)
+        initial.values[[n.chains.i]]$eta <- c(initial.values[[n.chains.i]]$eta,
+                                              rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+        # initialize beta
+        # initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
+      }
+
+      initial.values[[n.chains.i]]$eta[initial.values[[n.chains.i]]$eta > 100] <- 100
+      initial.values[[n.chains.i]]$eta[initial.values[[n.chains.i]]$eta < -100] <- -100
+    } # if (nof1$bs.trend) {
 
   } # n.chains.i
 
@@ -619,20 +688,25 @@ nof1.ma.poisson.inits <- function(nof1, n.chains) {
 
 nof1.ma.binomial.inits <- function(nof1, n.chains) {
 
-  if (is.null(nof1$names.covariates)) {
-    if (nof1$model.intcpt == "fixed") {
-      model <- glm(nof1$Y.long ~ -1 + nof1$ID + nof1$Treat, family = binomial(link = nof1$model.linkfunc))
-    } else {
-      model <- glm(nof1$Y.long ~ -1 + nof1$Treat, family = binomial(link = nof1$model.linkfunc))
-    }
-
-  } else {
+  if (nof1$model.intcpt == "fixed") {
     tmp.formula <- "nof1$Y.long ~ -1 + nof1$ID + nof1$Treat"
+  } else if (nof1$model.intcpt == "random") {
+    tmp.formula <- "nof1$Y.long ~ -1 + nof1$Treat"
+  }
+
+  if (!is.null(nof1$names.covariates)) {
     for (covariates.i in 1:length(nof1$names.long.covariates)) {
       tmp.formula <- paste0(tmp.formula, " + nof1$", nof1$names.long.covariates[covariates.i])
     }
-    model <- glm(as.formula(tmp.formula), family = binomial(link = "logit"))
   }
+
+  if (nof1$spline.trend) {
+    for (bs_df.i in 1:nof1$spline_df) {
+      tmp.formula <- paste0(tmp.formula, " + nof1$spline.long", bs_df.i)
+    }
+  }
+
+  model <- glm(as.formula(tmp.formula), family = binomial(link = nof1$model.linkfunc))
 
   summ.model    <- summary(model)
   coefMat.model <- coef(summ.model)
@@ -666,7 +740,10 @@ nof1.ma.binomial.inits <- function(nof1, n.chains) {
 
       }
 
-    } else { # if (nof1$model.intcpt == "fixed") {
+      initial.values[[n.chains.i]]$alpha[initial.values[[n.chains.i]]$alpha > 100] <- 100
+      initial.values[[n.chains.i]]$alpha[initial.values[[n.chains.i]]$alpha < -100] <- -100
+
+    } else if (nof1$model.intcpt == "random") { # if (nof1$model.intcpt == "fixed") {
       # b
       initial.values[[n.chains.i]]$b <- NULL
       for (n.Treat.i in 1:nof1$n.Treat) {
@@ -746,7 +823,7 @@ nof1.ma.binomial.inits <- function(nof1, n.chains) {
     if (nof1$model.intcpt == "fixed") {
       tmp.betas <- NULL
       initial.values[[n.chains.i]]$beta <- NULL
-    } else {
+    } else if (nof1$model.intcpt == "random") {
       tmp.betas <- initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]]
       initial.values[[n.chains.i]]$beta <- initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]]
       initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[1])]] <- NULL
@@ -756,15 +833,32 @@ nof1.ma.binomial.inits <- function(nof1, n.chains) {
       tmp.betas <- c(tmp.betas, initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]])
 
       # assign values to beta matrix and remove those treatment specific beta's
-      initial.values[[n.chains.i]]$beta <- cbind(initial.values[[n.chains.i]]$beta, initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]])
+      initial.values[[n.chains.i]]$beta <- cbind(initial.values[[n.chains.i]][["beta", exact = T]], initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]])
       initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
     }
 
     if (nof1$model.intcpt == "fixed") {
       initial.values[[n.chains.i]]$prec_delta <- 1 / var(tmp.betas)
-    } else {
+    } else if (nof1$model.intcpt == "random") {
       initial.values[[n.chains.i]]$prec_beta <- 1 / var(tmp.betas)
     }
+
+    # adjust for trend - splines
+    if (nof1$spline.trend) {
+      # eta
+      initial.values[[n.chains.i]]$eta <- NULL
+      for (eta.i in 1:nof1$spline_df) {
+
+        ind.coefMat <- grepl(paste0("spline.long", eta.i), names.coef)
+        initial.values[[n.chains.i]]$eta <- c(initial.values[[n.chains.i]]$eta,
+                                              rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+        # initialize beta
+        # initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
+      }
+
+      initial.values[[n.chains.i]]$eta[initial.values[[n.chains.i]]$eta > 100] <- 100
+      initial.values[[n.chains.i]]$eta[initial.values[[n.chains.i]]$eta < -100] <- -100
+    } # if (nof1$bs.trend) {
 
   } # n.chains.i
 
@@ -844,4 +938,288 @@ nof1.ma.ordinal.inits <- function(nof1, n.chains) {
   return(initial.values)
 
 }
+
+
+# Network meta analysis
+nof1.nma.inits <- function(nof1, n.chains) {
+
+  if (nof1$response == "normal") {
+    initial.values <- nof1.nma.normal.inits(nof1, n.chains)
+  } else if (nof1$response == "poisson") {
+    initial.values <- nof1.nma.poisson.inits(nof1, n.chains)
+  } else if (nof1$response == "binomial") {
+    initial.values <- nof1.nma.binomial.inits(nof1, n.chains)
+  }
+  # else if (nof1$response == "ordinal") {
+  #   # if ordinal outcome, no initial value because no equivalent frequentist model can be fit
+  #   initial.values <- nof1.ma.ordinal.inits(nof1, n.chains)
+  # }
+
+  # if (!is.null(initial.values)) {
+  # if initial value generated is too big (i.e. model didn't work because of sparse data), just set inital value to be NULL
+  if (any(abs(unlist(initial.values)) > 100, na.rm = T)) {
+    initial.values <- NULL
+  }
+  # }
+
+  return(initial.values)
+}
+
+nof1.nma.normal.inits <- function(nof1, n.chains) {
+
+  if (nof1$model.intcpt == "fixed") {
+    tmp.formula <- "nof1$data.long$Y ~ nof1$data.long$Treat"
+  } else if (nof1$model.intcpt == "random") {
+    tmp.formula <- "nof1$data.long$Y ~ -1 + nof1$data.long$Treat"
+  }
+
+  if (!is.null(nof1$cov.matrix)) {
+    for (cov.i in 1:nof1$n.cov) {
+      tmp.formula <- paste0(tmp.formula, " + nof1$data.long$cov", cov.i, ":nof1$data.long$Treat")
+    }
+  }
+
+  if (nof1$spline.trend) {
+    tmp.formula <- paste0(tmp.formula, " + nof1$spline.long.matrix")
+  }
+
+  if (nof1$step.trend) {
+    tmp.formula <- paste0(tmp.formula, " + nof1$step.long.matrix")
+  }
+
+  model <- glm(as.formula(tmp.formula), family = gaussian(link = nof1$model.linkfunc))
+
+  summ.model    <- summary(model)
+  coefMat.model <- coef(summ.model)
+  names.coef    <- rownames(coefMat.model)
+
+  initial.values = list()
+  for(n.chains.i in 1:n.chains){
+
+    initial.values[[n.chains.i]] <- list()
+
+    if (nof1$model.intcpt == "fixed") {
+      # d
+      initial.values[[n.chains.i]]$d <- NA
+      for (Treat.i in 2:length(nof1$Treat.name)) {
+
+        ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[Treat.i], "$"), names.coef)
+        initial.values[[n.chains.i]]$d <- c(initial.values[[n.chains.i]]$d,
+                                            rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+
+        # initialize beta
+        # initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
+      }
+
+    } else if (nof1$model.intcpt == "random") { # if (nof1$model.intcpt == "fixed") {
+      # b
+      initial.values[[n.chains.i]]$b <- NULL
+      for (Treat.i in 1:length(nof1$Treat.name)) {
+        ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[Treat.i], "$"), names.coef)
+        initial.values[[n.chains.i]]$b <- c(initial.values[[n.chains.i]]$b,
+                                            rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+      }
+    }
+
+    # do not generate alpha and beta's and variance
+    # values will become really unstable for individual participants and the model will not fit
+
+    # adjust for trend - splines
+    if (nof1$spline.trend) {
+      # eta
+      initial.values[[n.chains.i]]$eta <- NULL
+      for (eta.i in 1:nof1$spline.df) {
+
+        ind.coefMat <- grepl(paste0("spline.long.matrix", eta.i), names.coef)
+        initial.values[[n.chains.i]]$eta <- c(initial.values[[n.chains.i]]$eta,
+                                              rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+        # initialize beta
+        # initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
+      }
+
+      initial.values[[n.chains.i]]$eta[initial.values[[n.chains.i]]$eta > 100] <- 100
+      initial.values[[n.chains.i]]$eta[initial.values[[n.chains.i]]$eta < -100] <- -100
+    } # if (nof1$bs.trend) {
+
+    # adjust for trend - steps
+    if (nof1$step.trend) {
+      # eta
+      initial.values[[n.chains.i]]$eta <- NULL
+      for (eta.i in 1:nof1$step.df) {
+
+        ind.coefMat <- grepl(paste0("step.long.matrix", eta.i), names.coef)
+        initial.values[[n.chains.i]]$eta <- c(initial.values[[n.chains.i]]$eta,
+                                              rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+        # initialize beta
+        # initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
+      }
+
+      initial.values[[n.chains.i]]$eta[initial.values[[n.chains.i]]$eta > 100] <- 100
+      initial.values[[n.chains.i]]$eta[initial.values[[n.chains.i]]$eta < -100] <- -100
+    } # if (nof1$bs.trend) {
+
+  } # n.chains.i
+
+  return(initial.values)
+
+}
+
+nof1.nma.poisson.inits <- function(nof1, n.chains) {
+
+  if (nof1$model.intcpt == "fixed") {
+    tmp.formula <- "nof1$data.long$Y ~ nof1$data.long$Treat"
+  }
+
+  if (!is.null(nof1$cov.matrix)) {
+    for (cov.i in 1:nof1$n.cov) {
+      tmp.formula <- paste0(tmp.formula, " + nof1$data.long$cov", cov.i, ":nof1$data.long$Treat")
+    }
+  }
+
+  if (nof1$spline.trend) {
+    tmp.formula <- paste0(tmp.formula, " + nof1$spline.long.matrix")
+  }
+
+  model <- glm(as.formula(tmp.formula), family = poisson(link = nof1$model.linkfunc))
+
+  summ.model    <- summary(model)
+  coefMat.model <- coef(summ.model)
+  names.coef    <- rownames(coefMat.model)
+
+  initial.values = list()
+  for(n.chains.i in 1:n.chains){
+
+    initial.values[[n.chains.i]]   <- list()
+
+    if (nof1$model.intcpt == "fixed") {
+      # d
+      initial.values[[n.chains.i]]$d <- NA
+      for (Treat.i in 2:length(nof1$Treat.name)) {
+
+        ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[Treat.i], "$"), names.coef)
+        initial.values[[n.chains.i]]$d <- c(initial.values[[n.chains.i]]$d,
+                                            rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+
+        # initialize beta
+        # initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
+      }
+
+    }
+    # else if (nof1$model.intcpt == "random") { # if (nof1$model.intcpt == "fixed") {
+    #   # b
+    #   initial.values[[n.chains.i]]$b <- NULL
+    #   for (n.Treat.i in 1:nof1$n.Treat) {
+    #     ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[n.Treat.i]), names.coef)
+    #     initial.values[[n.chains.i]]$b <- c(initial.values[[n.chains.i]]$b,
+    #                                         rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+    #   }
+    # }
+
+    # do not generate alpha and beta's and variance
+    # values will become really unstable for individual participants and the model will not fit
+
+    # adjust for trend - splines
+    if (nof1$spline.trend) {
+      # eta
+      initial.values[[n.chains.i]]$eta <- NULL
+      for (eta.i in 1:nof1$spline.df) {
+
+        ind.coefMat <- grepl(paste0("spline.long.matrix", eta.i), names.coef)
+        initial.values[[n.chains.i]]$eta <- c(initial.values[[n.chains.i]]$eta,
+                                              rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+        # initialize beta
+        # initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
+      }
+
+      initial.values[[n.chains.i]]$eta[initial.values[[n.chains.i]]$eta > 100] <- 100
+      initial.values[[n.chains.i]]$eta[initial.values[[n.chains.i]]$eta < -100] <- -100
+    } # if (nof1$bs.trend) {
+
+  } # n.chains.i
+
+  return(initial.values)
+
+}
+
+nof1.nma.binomial.inits <- function(nof1, n.chains) {
+
+  if (nof1$model.intcpt == "fixed") {
+    tmp.formula <- "nof1$data.long$Y ~ nof1$data.long$Treat"
+  }
+  # else if (nof1$model.intcpt == "random") {
+  #   tmp.formula <- "nof1$Y.long ~ -1 + nof1$Treat"
+  # }
+
+  if (!is.null(nof1$cov.matrix)) {
+    for (cov.i in 1:nof1$n.cov) {
+      tmp.formula <- paste0(tmp.formula, " + nof1$data.long$cov", cov.i, ":nof1$data.long$Treat")
+    }
+  }
+
+  if (nof1$spline.trend) {
+      tmp.formula <- paste0(tmp.formula, " + nof1$spline.long.matrix")
+  }
+
+  model <- glm(as.formula(tmp.formula), family = binomial(link = nof1$model.linkfunc))
+
+  summ.model    <- summary(model)
+  coefMat.model <- coef(summ.model)
+  names.coef    <- rownames(coefMat.model)
+
+  initial.values = list()
+  for(n.chains.i in 1:n.chains){
+
+    initial.values[[n.chains.i]]   <- list()
+
+    if (nof1$model.intcpt == "fixed") {
+      # d
+      initial.values[[n.chains.i]]$d <- NA
+      for (Treat.i in 2:length(nof1$Treat.name)) {
+
+        ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[Treat.i], "$"), names.coef)
+        initial.values[[n.chains.i]]$d <- c(initial.values[[n.chains.i]]$d,
+                                            rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+
+        # initialize beta
+        # initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
+      }
+
+    }
+    # else if (nof1$model.intcpt == "random") { # if (nof1$model.intcpt == "fixed") {
+    #   # b
+    #   initial.values[[n.chains.i]]$b <- NULL
+    #   for (n.Treat.i in 1:nof1$n.Treat) {
+    #     ind.coefMat <- grepl(paste0("Treat", nof1$Treat.name[n.Treat.i]), names.coef)
+    #     initial.values[[n.chains.i]]$b <- c(initial.values[[n.chains.i]]$b,
+    #                                         rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+    #   }
+    # }
+
+    # do not generate alpha and beta's and variance
+    # values will become really unstable for individual participants and the model will not fit
+
+    # adjust for trend - splines
+    if (nof1$spline.trend) {
+      # eta
+      initial.values[[n.chains.i]]$eta <- NULL
+      for (eta.i in 1:nof1$spline.df) {
+
+        ind.coefMat <- grepl(paste0("spline.long.matrix", eta.i), names.coef)
+        initial.values[[n.chains.i]]$eta <- c(initial.values[[n.chains.i]]$eta,
+                                              rnorm(1, mean = coefMat.model[ind.coefMat, 1], sd = coefMat.model[ind.coefMat, 2]))
+        # initialize beta
+        # initial.values[[n.chains.i]][[paste0("beta_", nof1$Treat.name[Treat.name.i])]] <- NULL
+      }
+
+      initial.values[[n.chains.i]]$eta[initial.values[[n.chains.i]]$eta > 100] <- 100
+      initial.values[[n.chains.i]]$eta[initial.values[[n.chains.i]]$eta < -100] <- -100
+    } # if (nof1$bs.trend) {
+
+  } # n.chains.i
+
+  return(initial.values)
+
+}
+
+
 
