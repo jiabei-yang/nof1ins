@@ -7,6 +7,8 @@
 nof1.data(
   Y,
   Treat,
+  ord.baseline.Treat = NULL,
+  ord.model = NULL,
   response = NULL,
   ncat = NULL,
   bs.trend = F,
@@ -30,12 +32,17 @@ nof1.data(
 
 \item{Treat}{Treatment indicator vector with same length as the outcome. Can be character or numeric.}
 
-\item{response}{Type of outcome. Can be "normal" for continuous outcome, "binomial" for binary outcome, 
+\item{ord.baseline.Treat}{Used for ordinal outcome to define a reference treatment level.}
+
+\item{ord.model}{Used for ordinal outcome to pick the model. Can be "cumulative" for proportional odds model
+or "acat" for restricted adjacent category model.}
+
+\item{response}{Type of outcome. Can be "normal" for continuous outcome, "binomial" for binary outcome,
 "poisson" for count outcome, or "ordinal" for ordinal or nominal outcome.}
 
 \item{ncat}{Number of categories. Used in ordinal models.}
 
-\item{bs.trend}{Indicator for whether the model should adjust for trend using splines. The default 
+\item{bs.trend}{Indicator for whether the model should adjust for trend using splines. The default
 is \code{F}.}
 
 \item{y.time}{Parameter used for modeling splines. Time when the outcome is measured.}
@@ -44,15 +51,15 @@ is \code{F}.}
 at the end of each block except for the last block. If \code{TRUE}, user should then specify \code{block.no};
 if \code{FALSE}, user should then specify \code{bs.df}.}
 
-\item{block.no}{Block number used for modeling splines for the setting where the knots are set at the end 
+\item{block.no}{Block number used for modeling splines for the setting where the knots are set at the end
 of each block. Block number with the same length as the outcome.}
 
 \item{bs.df}{Degrees of freedom for modeling splines when knots are not set at the end of each block.}
 
-\item{corr.y}{Indicator for whether the correlation among measurements shoule be modeled. The default is 
+\item{corr.y}{Indicator for whether the correlation among measurements shoule be modeled. The default is
 \code{F}.}
 
-\item{alpha.prior}{Prior for the intercept of the model. Not needed now since we are using treatment-specific 
+\item{alpha.prior}{Prior for the intercept of the model. Not needed now since we are using treatment-specific
 intercept model.}
 
 \item{beta.prior}{Prior for the treatment-specific intercept.}
@@ -65,18 +72,18 @@ intercept model.}
 
 \item{rho.prior}{Prior for the correlated error model.}
 
-\item{hy.prior}{Prior for the heterogeneity parameter. Supports uniform, gamma, and half normal for 
-normal and binomial response and wishart for multinomial response. It should be a list of length 3, 
-where first element should be the distribution (one of dunif, dgamma, dhnorm, dwish) and the next 
-two are the parameters associated with the distribution. For example, list("dunif", 0, 5) give 
-uniform prior with lower bound 0 and upper bound 5 for the heterogeneity parameter. For wishart 
+\item{hy.prior}{Prior for the heterogeneity parameter. Supports uniform, gamma, and half normal for
+normal and binomial response and wishart for multinomial response. It should be a list of length 3,
+where first element should be the distribution (one of dunif, dgamma, dhnorm, dwish) and the next
+two are the parameters associated with the distribution. For example, list("dunif", 0, 5) give
+uniform prior with lower bound 0 and upper bound 5 for the heterogeneity parameter. For wishart
 distribution, the last two parameter would be the scale matrix and the degrees of freedom.}
 
 \item{...}{Arguments to be passed to \code{bs()}.}
 }
 \value{
-An object of class "nof1.data" that is used to run the model using \code{\link{nof1.run}} is a list 
-containing 
+An object of class "nof1.data" that is used to run the model using \code{\link{nof1.run}} is a list
+containing
 \item{Y}{Outcome}
 \item{Treat}{Treatment}
 \item{ncat}{Number of categories for ordinal response}

@@ -167,6 +167,7 @@ nof1.data <- function(Y, Treat, ord.baseline.Treat = NULL, ord.model = NULL, res
   nof1
 }
 
+#' @export
 
 # ID must be a complete vector with no missing values
 nof1.ma.data <- function(Y, Treat, baseline.Treat, ID, response,
@@ -391,6 +392,7 @@ nof1.ma.data <- function(Y, Treat, baseline.Treat, ID, response,
 }
 
 
+#' @export
 
 # ID must be a complete vector with no missing values
 nof1.nma.data <- function(Y, Treat, baseline.Treat, ID, response,

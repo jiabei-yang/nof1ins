@@ -3,6 +3,8 @@
 export(frequency_plot)
 export(kernel_plot)
 export(nof1.data)
+export(nof1.ma.data)
+export(nof1.nma.data)
 export(nof1.normal.simulation)
 export(nof1.run)
 export(probability_barplot)

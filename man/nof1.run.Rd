@@ -18,25 +18,25 @@ nof1.run(
 \arguments{
 \item{nof1}{nof1 object created from \code{\link{nof1.data}} function}
 
-\item{inits}{Initial values for the parameters being sampled. If left unspecified, program will generate 
+\item{inits}{Initial values for the parameters being sampled. If left unspecified, program will generate
 reasonable initial values.}
 
 \item{n.chains}{Number of chains to run}
 
-\item{max.run}{Maximum number of iterations that user is willing to run. If the algorithm is not 
+\item{max.run}{Maximum number of iterations that user is willing to run. If the algorithm is not
 converging, it will run up to \code{max.run} iterations before printing a message that it did not converge}
 
-\item{setsize}{Number of iterations that are run between convergence checks. If the algorithm converges 
-fast, user wouldn't need a big setsize. The number that is printed between each convergence checks is the 
+\item{setsize}{Number of iterations that are run between convergence checks. If the algorithm converges
+fast, user wouldn't need a big setsize. The number that is printed between each convergence checks is the
 gelman-rubin diagnostics and we would want that to be below the conv.limit the user specifies.}
 
-\item{n.run}{Final number of iterations that the user wants to store. If after the algorithm converges, 
-user wants less number of iterations, we thin the sequence. If the user wants more iterations, we run 
+\item{n.run}{Final number of iterations that the user wants to store. If after the algorithm converges,
+user wants less number of iterations, we thin the sequence. If the user wants more iterations, we run
 extra iterations to reach the specified number of runs}
 
 \item{conv.limit}{Convergence limit for Gelman and Rubin's convergence diagnostic.}
 
-\item{extra.pars.save}{Parameters that user wants to save besides the default parameters saved. See code 
+\item{extra.pars.save}{Parameters that user wants to save besides the default parameters saved. See code
 using \code{cat(nof1$code)} to see which parameters can be saved.}
 }
 \value{
@@ -50,7 +50,7 @@ using \code{cat(nof1$code)} to see which parameters can be saved.}
 \item{max.gelman}{Maximum Gelman and Rubin's convergence diagnostic calculated for the final sample}
 }
 \description{
-This is the core function that runs the model in our program. Before running this function, we need to specify data, prior, 
+This is the core function that runs the model in our program. Before running this function, we need to specify data, prior,
 JAGS code, etc. using \code{\link{nof1.data}}.
 }
 \examples{

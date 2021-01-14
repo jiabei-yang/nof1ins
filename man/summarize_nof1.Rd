@@ -12,7 +12,7 @@ summarize_nof1(result, alpha = 0.05)
 \item{alpha}{The alpha value for the confidence interval. The default is 0.05.}
 }
 \value{
-The function computes and returns a list of summary statistics of 
+The function computes and returns a list of summary statistics of
 the raw data and the fitted model.
 \item{raw.y.mean}{The raw mean of the outcome for each treatment}
 \item{raw.y.median}{The raw median of the outcome for each treatment}
@@ -22,9 +22,9 @@ the raw data and the fitted model.
 \item{post.y.median}{The posterior median of the outcome for each treatment}
 \item{post.coef.ci}{The credible interval of the coefficient for each treatment}
 \item{post.y.ci}{The credible interval of the outcome for each treatment}
-\item{comp.treat.post.coef}{The posterior quantiles of one coefficient minus the other 
+\item{comp.treat.post.coef}{The posterior quantiles of one coefficient minus the other
 when comparing two treatments}
-\item{p.comp.coef.greater.0}{The posterior probability of one coefficient minus the other 
+\item{p.comp.coef.greater.0}{The posterior probability of one coefficient minus the other
 greater than 0}
 }
 \description{

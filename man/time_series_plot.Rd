@@ -6,9 +6,10 @@
 \usage{
 time_series_plot(
   result,
-  overlay.with.model = F,
+  baseline.treat.name = NULL,
   plot.by.treat = T,
-  trend.only = F,
+  overlay.with.model = F,
+  predict.model = F,
   trial.start = NULL,
   trial.end = NULL,
   timestamp.format = NULL,
@@ -18,13 +19,15 @@ time_series_plot(
 \arguments{
 \item{result}{Modeling result of class \code{nof1.result} produced by \code{nof1.run}.}
 
-\item{overlay.with.model}{Whether or not the model prediction should be plotted. The default is \code{F}.}
+\item{baseline.treat.name}{Name for reference treatment. Default is \code{NULL}.}
 
 \item{plot.by.treat}{Whether or not the measurements should be plotted in different panels by treatment.
 The default is \code{T}.}
 
-\item{trend.only}{Indicator for whether or not a trend-only line should be plotted when overlay with a model 
-adjusted for trend. Option when \code{overlay.with.model = TRUE} and the fitted model adjusts for trend.}
+\item{overlay.with.model}{Whether or not the model prediction should be plotted. The default is \code{F}.}
+
+\item{predict.model}{Indicator for whether or not a prediction line should be plotted over the study period.
+Option when \code{overlay.with.model = TRUE}.}
 
 \item{trial.start}{Start time of the trial specified with \code{timestamp.format}.}
 
@@ -40,8 +43,8 @@ Y <- laughter$Y
 Treat <- laughter$Treat
 nof1 <- nof1.data(Y, Treat, ncat = 11, baseline = "Usual Routine", response = "ordinal")
 timestamp <- seq(as.Date('2015-01-01'),as.Date('2016-01-31'), length.out = length(Y))
-time_series_plot(nof1, 
-                 timestamp = timestamp, 
-                 timestamp.format = "\%m-\%d-\%Y", 
+time_series_plot(nof1,
+                 timestamp = timestamp,
+                 timestamp.format = "\%m-\%d-\%Y",
                  Outcome.name = "Stress")
 }
