@@ -127,7 +127,7 @@ nof1.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, setsize
 
 }
 
-
+#' @export
 
 nof1.ma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, setsize = 10000, n.run = 50000,
                         conv.limit = 1.05, extra.pars.save = NULL) {
@@ -247,7 +247,7 @@ nof1.ma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, sets
 
 }
 
-
+#' @export
 # Network meta analysis
 nof1.nma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, setsize = 10000, n.run = 50000,
                          conv.limit = 1.05, extra.pars.save = NULL) {
