@@ -434,6 +434,7 @@ nof1.nma.data <- function(Y, Treat, baseline.Treat, ID, response,
     arrange(n_Treat)
   max.Treat.ID <- max(summ.nID.perTreat$n_Treat)
 
+  # always have 1:maximum number of treatment per participant
   tmp.n.Treat <- data.frame(n_Treat = 1:max.Treat.ID)
   summ.nID.perTreat <- tmp.n.Treat %>%
     left_join(summ.nID.perTreat, by = "n_Treat")
@@ -559,6 +560,18 @@ nof1.nma.data <- function(Y, Treat, baseline.Treat, ID, response,
 
   }
 
+  # serial correlation
+  if (corr.y) {
+    nof1$data.long$Y_time <- y.time
+
+    # create time index matrix to account for non consecutive outcome y
+    time.matrix <- matrix(NA, nrow = max.obs.ID, ncol = nrow(summ.ID))
+    for (ID.i in 1:nrow(summ.ID)) {
+      time.matrix[1:summ.ID$nobs[ID.i], ID.i] <- nof1$data.long$Y_time[(ID == summ.ID$ID[ID.i]) & (!is.na(nof1$data.long$Y))]
+    }
+    nof1$time.matrix <- time.matrix
+  }
+
   # participant level covariates
   if (!is.null(lvl2.cov)) {
 
@@ -599,15 +612,15 @@ nof1.nma.data <- function(Y, Treat, baseline.Treat, ID, response,
 
     # create actual ordered treatment matrix
     # because nof1$Treat.x may correspond to different treatment, the interaction term is with the actual treatment
-    for (Treat.i in 1:length(nof1$Treat.name)) {
-      nof1[[paste0("Treat.order.", Treat.i)]] <- matrix(NA, nrow = max.obs.ID, ncol = nrow(summ.ID))
-    }
-
-    for (ID.i in 1:nrow(summ.ID)) {
-      for (Treat.i in 1:length(nof1$Treat.name)) {
-        nof1[[paste0("Treat.order.", Treat.i)]][1:summ.ID$nobs[ID.i], ID.i] <- as.numeric(Treat.matrix[1:summ.ID$nobs[ID.i], ID.i] == Treat.i)
-      }
-    }
+    # for (Treat.i in 1:length(nof1$Treat.name)) {
+    #   nof1[[paste0("Treat.order.", Treat.i)]] <- matrix(NA, nrow = max.obs.ID, ncol = nrow(summ.ID))
+    # }
+    #
+    # for (ID.i in 1:nrow(summ.ID)) {
+    #   for (Treat.i in 1:length(nof1$Treat.name)) {
+    #     nof1[[paste0("Treat.order.", Treat.i)]][1:summ.ID$nobs[ID.i], ID.i] <- as.numeric(Treat.matrix[1:summ.ID$nobs[ID.i], ID.i] == Treat.i)
+    #   }
+    # }
 
   } # if (!is.null(lvl2.cov)) {
 

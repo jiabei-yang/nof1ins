@@ -300,6 +300,11 @@ nof1.nma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, set
     pars.save <- c(pars.save, "eta")
   }
 
+  # serial correlation
+  if (nof1$corr.y) {
+    pars.save <- c(pars.save, "rho_resid")
+  }
+
   # extra parameters
   if (!is.null(extra.pars.save)) {
     pars.save <- c(pars.save, extra.pars.save)
@@ -312,15 +317,15 @@ nof1.nma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, set
                uniq.Treat.matrix = nof1$uniq.Treat.matrix)
   if (nof1$model.intcpt == "random") {
     data$Treat.1       <- nof1$Treat.1
-    data$Treat.order.1 <- nof1$Treat.order.1
+    # data$Treat.order.1 <- nof1$Treat.order.1
   }
   for (Treat.i in 2:nrow(nof1$summ.nID.perTreat)) {
     data[[paste0("Treat.",  Treat.i)]]       <- nof1[[paste0("Treat.", Treat.i)]]
   }
 
-  for (Treat.i in 2:length(nof1$Treat.name)) {
-    data[[paste0("Treat.order.",  Treat.i)]] <- nof1[[paste0("Treat.order.", Treat.i)]]
-  }
+  # for (Treat.i in 2:length(nof1$Treat.name)) {
+  #   data[[paste0("Treat.order.",  Treat.i)]] <- nof1[[paste0("Treat.order.", Treat.i)]]
+  # }
   # if (nof1$response == "ordinal") {
   #   data$ord.ncat <- nof1$ord.ncat
   # }
@@ -340,6 +345,11 @@ nof1.nma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, set
   if (nof1$step.trend) {
     data$step.matrix   <- nof1$step.matrix
     data$period.matrix <- nof1$period.matrix
+  }
+
+  # data on time - correlation
+  if (nof1$corr.y) {
+    data$time.matrix   <- nof1$time.matrix
   }
 
   # Initial values

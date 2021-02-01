@@ -1261,13 +1261,38 @@ nof1.nma.normal.rjags <- function(nof1) {
     if (nof1$model.intcpt == "random") {
       code <- paste0(code,
                      "\t\tbeta_1[i] ~ dnorm(b[uniq.Treat.matrix[1, i]], prec_beta)\n")
-    }
+
+      # covariate coefficients will be 0 any way for only one treatment if fixed intercept
+      if (!is.null(nof1$cov.matrix)) {
+
+        for (cov.i in 1:nrow(nof1$cov.matrix)) {
+          code <- paste0(code,
+                         "\t\teta_cov_i[i, 1, ", cov.i, "] <- eta_cov[uniq.Treat.matrix[1, i], ", cov.i, "]\n")
+        }
+
+      } # assign the actual eta cov
+    } # if random intercept
 
     # First level model
     code <- paste0(code,
                    "\t\tfor (j in 1:nobs.ID[i]) {\n")
+
+    if (!nof1$corr.y) {
+      code <- paste0(code,
+                     "\t\t\tY.matrix[j, i] ~ dnorm(m[j, i], prec_resid)\n")
+    }
+    # when correlation, Y.matrix will be the same across different # of treatment
+    # will be defined differently j = 1 and j > 1 because index cannot be 0
+
     code <- paste0(code,
-                   "\t\t\tY.matrix[j, i] ~ dnorm(mu[j, i], prec_resid)\n")
+                   "\t\t\tm[j, i] <- mu[j, i]")
+    if (nof1$corr.y) {
+      code <- paste0(code,
+                     " + e[j, i]")
+    }
+    code <- paste0(code,
+                   "\n")
+
     if (nof1$model.intcpt == "fixed") {
       code <- paste0(code,
                      "\t\t\tmu[j, i] <- alpha[i]")
@@ -1290,14 +1315,16 @@ nof1.nma.normal.rjags <- function(nof1) {
       }
     }
 
+    # adjust for level 2 covariates
+    # only random intercept because the coefficients for fixed intercept when one treatment being 0 anyway
     if (!is.null(nof1$cov.matrix)) {
       if (nof1$model.intcpt == "random") {
-        for (Treat.i in 1:length(nof1$Treat.name)) {
-          for (cov.i in 1:nrow(nof1$cov.matrix)) {
-            code <- paste0(code,
-                           " + eta_cov[", Treat.i, ", ", cov.i, "] * cov.matrix[", cov.i, ", i] * Treat.order.", Treat.i, "[j, i]")
-          }
+
+        for (cov.i in 1:nrow(nof1$cov.matrix)) {
+          code <- paste0(code,
+                         " + eta_cov_i[i, 1, ", cov.i, "] * cov.matrix[", cov.i, ", i] * Treat.1[j, i]")
         }
+
       } # if (nof1$model.intcpt == "random") {
     } # if (!is.null(nof1$cov.matrix)) {
     code <- paste0(code, "\n")
@@ -1312,6 +1339,7 @@ nof1.nma.normal.rjags <- function(nof1) {
   # when there is only 1 treatment on all participant, do not append code
   if (nrow(nof1$summ.nID.perTreat) >= 2) {
 
+    # summ.nID.perTreat always have 1:maximum number of treatments per participant
     for (n.Treat.ID.i in 2:nrow(nof1$summ.nID.perTreat)) {
 
       # only append code when there are participants has this number of treatments
@@ -1336,11 +1364,46 @@ nof1.nma.normal.rjags <- function(nof1) {
           }
         }
 
+        # assign the actual eta cov
+        if (!is.null(nof1$cov.matrix)) {
+
+          if (nof1$model.intcpt == "fixed") {
+            for (Treat.i in 2:n.Treat.ID.i) {
+              for (cov.i in 1:nrow(nof1$cov.matrix)) {
+                code <- paste0(code,
+                               "\t\teta_cov_i[i, ", Treat.i, ", ", cov.i, "] <- eta_cov[uniq.Treat.matrix[", Treat.i, ", i], ", cov.i, "] - eta_cov[uniq.Treat.matrix[1, i], ", cov.i, "]\n")
+              }
+            }
+          } else if (nof1$model.intcpt == "random") {
+            for (Treat.i in 1:n.Treat.ID.i) {
+              for (cov.i in 1:nrow(nof1$cov.matrix)) {
+                code <- paste0(code,
+                               "\t\teta_cov_i[i, ", Treat.i, ", ", cov.i, "] <- eta_cov[uniq.Treat.matrix[", Treat.i, ", i], ", cov.i, "]\n")
+              }
+            }
+          } # else if (nof1$model.intcpt == "random") {
+
+        } # assign the actual eta cov
+
         # First level model
         code <- paste0(code,
                        "\t\tfor (j in 1:nobs.ID[i]) {\n")
+        if (!nof1$corr.y) {
+          code <- paste0(code,
+                         "\t\t\tY.matrix[j, i] ~ dnorm(m[j, i], prec_resid)\n")
+        }
+        # when correlation, Y.matrix will be the same across different # of treatment
+        # will be defined differently j = 1 and j > 1 because index cannot be 0
+
         code <- paste0(code,
-                       "\t\t\tY.matrix[j, i] ~ dnorm(mu[j, i], prec_resid)\n")
+                       "\t\t\tm[j, i] <- mu[j, i]")
+        # correlation
+        if (nof1$corr.y) {
+          code <- paste0(code,
+                         " + e[j, i]")
+        }
+        code <- paste0(code,
+                       "\n")
 
         if (nof1$model.intcpt == "fixed") {
           code <- paste0(code,
@@ -1375,15 +1438,15 @@ nof1.nma.normal.rjags <- function(nof1) {
           if (nof1$model.intcpt == "random") {
             for (cov.i in 1:nrow(nof1$cov.matrix)) {
               code <- paste0(code,
-                             " + eta_cov[1, ", cov.i, "] * cov.matrix[", cov.i, ", i] * Treat.order.1[j, i]")
+                             " + eta_cov_i[i, 1, ", cov.i, "] * cov.matrix[", cov.i, ", i] * Treat.1[j, i]")
             }
           }
 
           # fixed intercept do not need to do interaction with first treatment
-          for (Treat.i in 2:length(nof1$Treat.name)) {
+          for (Treat.i in 2:n.Treat.ID.i) {
             for (cov.i in 1:nrow(nof1$cov.matrix)) {
               code <- paste0(code,
-                             " + eta_cov[", Treat.i, ", ", cov.i, "] * cov.matrix[", cov.i, ", i] * Treat.order.", Treat.i, "[j, i]")
+                             " + eta_cov_i[i, ", Treat.i, ", ", cov.i, "] * cov.matrix[", cov.i, ", i] * Treat.", Treat.i, "[j, i]")
             }
           }
           # eta_cov be a matrix of coefficients for the interaction between treatment and covariates
@@ -1397,6 +1460,27 @@ nof1.nma.normal.rjags <- function(nof1) {
 
       } # if (nof1$summ.nID.perTreat$n_ID_perNTreat[n.Treat.ID.i] != 0) {
     } # for (n.Treat.ID.i in 2:nrow(nof1$summ.nID.perTreat)) {
+  }
+
+  # e[j, i], resid[j, i] for correlation
+  # take care of outcome measurements on non-consecutive days
+  if (nof1$corr.y) {
+    code <- paste0(code,
+                   "\tfor (i in 1:", sum(nof1$summ.nID.perTreat$n_ID_perNTreat),"){\n")
+    code <- paste0(code,
+                   "\t\te[1, i] <- 0\n")
+    code <- paste0(code,
+                   "\t\tY.matrix[1, i] ~ dnorm(m[1, i], (1 - rho_resid^2) * prec_resid)\n")
+    code <- paste0(code,
+                   "\t\tfor (j in 2:nobs.ID[i]) {\n")
+    code <- paste0(code,
+                   "\t\t\te[j, i] <- rho_resid^(time.matrix[j, i] - time.matrix[j-1, i]) * (Y.matrix[j-1, i] - mu[j-1, i])\n")
+    code <- paste0(code,
+                   "\t\t\tY.matrix[j, i] ~ dnorm(m[j, i], prec_resid * (1 - rho_resid^2) / (1 - (rho_resid^2)^(time.matrix[j, i] - time.matrix[j-1, i])))\n")
+    code <- paste0(code,
+                   "\t\t}\n") # j loop
+    code <- paste0(code,
+                   "\t}\n\n") # i loop
   }
 
   # Priors
@@ -1501,7 +1585,14 @@ nof1.nma.normal.rjags <- function(nof1) {
 
   # prior for residual error
   code <- paste0(code,
-                 "\tprec_resid ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n\n")
+                 "\tprec_resid ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n")
+  # prior for serial correlation
+  if (nof1$corr.y) {
+    code <- paste0(code,
+                   "\trho_resid ~ ", nof1$rho.prior[[1]], "(", nof1$rho.prior[[2]], ", ", nof1$rho.prior[[3]], ")\n")
+  }
+  code <- paste0(code,
+                 "\n")
 
   # prior for trend coefficients - splines
   if (nof1$spline.trend) {
@@ -1524,16 +1615,19 @@ nof1.nma.normal.rjags <- function(nof1) {
   # prior for coefficients for level 2 covariates
   if (!is.null(nof1$cov.matrix)) {
 
+    code <- paste0(code,
+                   "\tfor (j in 1:", nrow(nof1$cov.matrix), ") {\n")
+
     if (nof1$model.intcpt == "fixed") {
       code <- paste0(code,
-                     "\tfor (i in 2:", length(nof1$Treat.name), ") {\n")
+                     "\t\teta_cov[1, j] <- 0\n")
+      code <- paste0(code,
+                     "\t\tfor (i in 2:", length(nof1$Treat.name), ") {\n")
     } else if (nof1$model.intcpt == "random") {
       code <- paste0(code,
-                     "\tfor (i in 1:", length(nof1$Treat.name), ") {\n")
+                     "\t\tfor (i in 1:", length(nof1$Treat.name), ") {\n")
     }
 
-    code <- paste0(code,
-                   "\t\tfor (j in 1:", nrow(nof1$cov.matrix), ") {\n")
     code <- paste0(code, "\t\t\teta_cov[i, j] ~ ", nof1$eta.prior[[1]], "(", nof1$eta.prior[[2]], ", ", nof1$eta.prior[[3]], ")\n")
     code <- paste0(code,
                    "\t\t}\n")
@@ -1581,63 +1675,97 @@ nof1.nma.poisson.rjags <- function(nof1) {
                    "\t}\n\n") # for (i in cumsum:cumsum)
   } # if (nof1$summ.nID.perTreat$n_ID_perNTreat[1] != 0) {
 
-  for (n.Treat.ID.i in 2:nrow(nof1$summ.nID.perTreat)) {
+  # when there is only 1 treatment on all participant, do not append code
+  if (nrow(nof1$summ.nID.perTreat) >= 2) {
 
-    # only append code when there are participants has this number of treatments
-    if (nof1$summ.nID.perTreat$n_ID_perNTreat[n.Treat.ID.i] != 0) {
+    for (n.Treat.ID.i in 2:nrow(nof1$summ.nID.perTreat)) {
 
-      code <- paste0(code,
-                     "\tfor (i in ", cumsum(nof1$summ.nID.perTreat$n_ID_perNTreat)[n.Treat.ID.i-1]+1, ":", cumsum(nof1$summ.nID.perTreat$n_ID_perNTreat)[n.Treat.ID.i], ") {\n\n")
+      # only append code when there are participants has this number of treatments
+      if (nof1$summ.nID.perTreat$n_ID_perNTreat[n.Treat.ID.i] != 0) {
 
-      # random effects
-      for (Treat.i in 2:n.Treat.ID.i) {
         code <- paste0(code,
-                       "\t\tbeta_", Treat.i, "[i] ~ dnorm(d[uniq.Treat.matrix[", Treat.i, ", i]] - d[uniq.Treat.matrix[1, i]], prec_beta)\n")
-      }
-      code <- paste0(code, "\n")
+                       "\tfor (i in ", cumsum(nof1$summ.nID.perTreat$n_ID_perNTreat)[n.Treat.ID.i-1]+1, ":", cumsum(nof1$summ.nID.perTreat$n_ID_perNTreat)[n.Treat.ID.i], ") {\n")
 
-      # First level model
-      code <- paste0(code,
-                     "\t\tfor (j in 1:nobs.ID[i]) {\n")
-      code <- paste0(code,
-                     "\t\t\tY.matrix[j, i] ~ dpois(lambda[j, i])\n")
-
-      if (nof1$model.intcpt == "fixed") {
-        code <- paste0(code,
-                       "\t\t\tlog(lambda[j, i]) <- alpha[i]")
-      }
-      for(Treat.i in 2:n.Treat.ID.i){
-        code <- paste0(code,
-                       " + beta_", Treat.i, "[i] * Treat.", Treat.i, "[j, i]")
-      }
-
-      # adjust for trend by basis splines
-      if (nof1$spline.trend) {
-        for (l in 1:nof1$spline.df){
-          code <- paste0(code, " + eta[", l, "] * spline.matrix[time.matrix[j, i], ", l,"]")
+        # random effects
+        for (Treat.i in 2:n.Treat.ID.i) {
+          code <- paste0(code,
+                         "\t\tbeta_", Treat.i, "[i] ~ dnorm(d[uniq.Treat.matrix[", Treat.i, ", i]] - d[uniq.Treat.matrix[1, i]], prec_beta)\n")
         }
-      }
 
-      # adjust for level 2 covariates
-      if (!is.null(nof1$cov.matrix)) {
-        # work for fixed intercept model only
-        for (Treat.i in 2:length(nof1$Treat.name)) {
-          for (cov.i in 1:nrow(nof1$cov.matrix)) {
-            code <- paste0(code,
-                           " + eta_cov[", Treat.i, ", ", cov.i, "] * cov.matrix[", cov.i, ", i] * Treat.order.", Treat.i, "[j, i]")
+        # assign the actual eta cov
+        if (!is.null(nof1$cov.matrix)) {
+
+          if (nof1$model.intcpt == "fixed") {
+            for (Treat.i in 2:n.Treat.ID.i) {
+              for (cov.i in 1:nrow(nof1$cov.matrix)) {
+                code <- paste0(code,
+                               "\t\teta_cov_i[i, ", Treat.i, ", ", cov.i, "] <- eta_cov[uniq.Treat.matrix[", Treat.i, ", i], ", cov.i, "] - eta_cov[uniq.Treat.matrix[1, i], ", cov.i, "]\n")
+              }
+            }
+          }
+          # else if (nof1$model.intcpt == "random") {
+          #   for (Treat.i in 1:n.Treat.ID.i) {
+          #     for (cov.i in 1:nrow(nof1$cov.matrix)) {
+          #       code <- paste0(code,
+          #                      "\t\teta_cov_i[i, ", Treat.i, ", ", cov.i, "] <- eta_cov[uniq.Treat.matrix[", Treat.i, ", i], ", cov.i, "]\n")
+          #     }
+          #   }
+          # } # else if (nof1$model.intcpt == "random") {
+
+        } # if (!is.null(nof1$cov.matrix)) {
+
+        # First level model
+        code <- paste0(code,
+                       "\t\tfor (j in 1:nobs.ID[i]) {\n")
+        code <- paste0(code,
+                       "\t\t\tY.matrix[j, i] ~ dpois(lambda[j, i])\n")
+
+        if (nof1$model.intcpt == "fixed") {
+          code <- paste0(code,
+                         "\t\t\tlog(lambda[j, i]) <- alpha[i]")
+        }
+        for(Treat.i in 2:n.Treat.ID.i){
+          code <- paste0(code,
+                         " + beta_", Treat.i, "[i] * Treat.", Treat.i, "[j, i]")
+        }
+
+        # adjust for trend by basis splines
+        if (nof1$spline.trend) {
+          for (l in 1:nof1$spline.df){
+            code <- paste0(code, " + eta[", l, "] * spline.matrix[time.matrix[j, i], ", l,"]")
           }
         }
-        # eta_cov be a matrix of coefficients for the interaction between treatment and covariates
-      } # if (!is.null(nof1$cov.matrix)) {
-      code <- paste0(code, "\n")
 
-      code <- paste0(code,
-                     "\t\t}\n") # for (j in 1:nobs.ID[i])
-      code <- paste0(code,
-                     "\t}\n\n") # for (i in cumsum:cumsum)
+        # adjust for level 2 covariates
+        if (!is.null(nof1$cov.matrix)) {
 
-    } # if (nof1$summ.nID.perTreat$n_ID_perNTreat[n.Treat.ID.i] != 0) {
-  } # for (n.Treat.ID.i in 2:nrow(nof1$summ.nID.perTreat)) {
+          # # random intercept also first intercept
+          # if (nof1$model.intcpt == "random") {
+          #   for (cov.i in 1:nrow(nof1$cov.matrix)) {
+          #     code <- paste0(code,
+          #                    " + eta_cov_i[i, 1, ", cov.i, "] * cov.matrix[", cov.i, ", i] * Treat.1[j, i]")
+          #   }
+          # }
+
+          # work for fixed intercept model only
+          for (Treat.i in 2:n.Treat.ID.i) {
+            for (cov.i in 1:nrow(nof1$cov.matrix)) {
+              code <- paste0(code,
+                             " + eta_cov_i[i, ", Treat.i, ", ", cov.i, "] * cov.matrix[", cov.i, ", i] * Treat.", Treat.i, "[j, i]")
+            }
+          }
+          # eta_cov be a matrix of coefficients for the interaction between treatment and covariates
+        } # if (!is.null(nof1$cov.matrix)) {
+        code <- paste0(code, "\n")
+
+        code <- paste0(code,
+                       "\t\t}\n") # for (j in 1:nobs.ID[i])
+        code <- paste0(code,
+                       "\t}\n\n") # for (i in cumsum:cumsum)
+
+      } # if (nof1$summ.nID.perTreat$n_ID_perNTreat[n.Treat.ID.i] != 0) {
+    } # for (n.Treat.ID.i in 2:nrow(nof1$summ.nID.perTreat)) {
+  }
 
   # Priors
   # alpha prior
@@ -1691,10 +1819,20 @@ nof1.nma.poisson.rjags <- function(nof1) {
 
   # prior for coefficients for level 2 covariates
   if (!is.null(nof1$cov.matrix)) {
+
     code <- paste0(code,
-                   "\tfor (i in 2:", length(nof1$Treat.name), ") {\n")
-    code <- paste0(code,
-                   "\t\tfor (j in 1:", nrow(nof1$cov.matrix), ") {\n")
+                   "\tfor (j in 1:", nrow(nof1$cov.matrix), ") {\n")
+
+    if (nof1$model.intcpt == "fixed") {
+      code <- paste0(code,
+                     "\t\teta_cov[1, j] <- 0\n")
+      code <- paste0(code,
+                     "\t\tfor (i in 2:", length(nof1$Treat.name), ") {\n")
+    }
+    # else if (nof1$model.intcpt == "random") {
+    #   code <- paste0(code,
+    #                  "\t\tfor (i in 1:", length(nof1$Treat.name), ") {\n")
+    # }
     code <- paste0(code, "\t\t\teta_cov[i, j] ~ ", nof1$eta.prior[[1]], "(", nof1$eta.prior[[2]], ", ", nof1$eta.prior[[3]], ")\n")
     code <- paste0(code,
                    "\t\t}\n")
@@ -1711,11 +1849,13 @@ nof1.nma.poisson.rjags <- function(nof1) {
 
 nof1.nma.binomial.rjags <- function(nof1) {
 
+  # only log link, fixed intercept work for now
+
   code <- paste0("model{\n")
 
   if (nof1$summ.nID.perTreat$n_ID_perNTreat[1] != 0) {
     code <- paste0(code,
-                   "\tfor (i in 1:", nof1$summ.nID.perTreat$n_ID_perNTreat[1], ") {\n\n")
+                   "\tfor (i in 1:", nof1$summ.nID.perTreat$n_ID_perNTreat[1], ") {\n")
     # First level model
     code <- paste0(code,
                    "\t\tfor (j in 1:nobs.ID[i]) {\n")
@@ -1734,7 +1874,14 @@ nof1.nma.binomial.rjags <- function(nof1) {
                        "\t\t\tlp[j, i] <- alpha[i]")
       }
 
-    } # log link function
+    } else if (nof1$model.linkfunc == "logit") {
+
+      if (nof1$model.intcpt == "fixed") {
+        code <- paste0(code,
+                       "\t\t\tlogit(p[j, i]) <- alpha[i]")
+      }
+
+    } # else if logit link
 
     # adjust for trend by basis splines
     if (nof1$spline.trend) {
@@ -1752,73 +1899,115 @@ nof1.nma.binomial.rjags <- function(nof1) {
 
   }
 
-  for (n.Treat.ID.i in 2:nrow(nof1$summ.nID.perTreat)) {
+  # when there is only 1 treatment on all participant, do not append code
+  if (nrow(nof1$summ.nID.perTreat) >= 2) {
 
-    # only append code when there are participants has this number of treatments
-    if (nof1$summ.nID.perTreat$n_ID_perNTreat[n.Treat.ID.i] != 0) {
+    for (n.Treat.ID.i in 2:nrow(nof1$summ.nID.perTreat)) {
 
-      code <- paste0(code,
-                     "\tfor (i in ", cumsum(nof1$summ.nID.perTreat$n_ID_perNTreat)[n.Treat.ID.i-1]+1, ":", cumsum(nof1$summ.nID.perTreat$n_ID_perNTreat)[n.Treat.ID.i], ") {\n\n")
+      # only append code when there are participants has this number of treatments
+      if (nof1$summ.nID.perTreat$n_ID_perNTreat[n.Treat.ID.i] != 0) {
 
-      # random effects
-      for (Treat.i in 2:n.Treat.ID.i) {
-        ## need to fix here
         code <- paste0(code,
-                       "\t\tbeta_", Treat.i, "[i] ~ dnorm(d[uniq.Treat.matrix[", Treat.i, ", i]] - d[uniq.Treat.matrix[1, i]], prec_beta)\n")
-      }
-      code <- paste0(code, "\n")
+                       "\tfor (i in ", cumsum(nof1$summ.nID.perTreat$n_ID_perNTreat)[n.Treat.ID.i-1]+1, ":", cumsum(nof1$summ.nID.perTreat$n_ID_perNTreat)[n.Treat.ID.i], ") {\n")
 
-      # First level model
-      code <- paste0(code,
-                     "\t\tfor (j in 1:nobs.ID[i]) {\n")
-
-      code <- paste0(code,
-                     "\t\t\tY.matrix[j, i] ~ dbern(p[j, i])\n")
-
-      if (nof1$model.linkfunc == "log") {
-        code <- paste0(code,
-                       "\t\t\tp[j, i] <- exp(rlp[j, i])\n")
-        code <- paste0(code,
-                       "\t\t\trlp[j, i] <- min(0, lp[j, i])\n")
-
-        if (nof1$model.intcpt == "fixed") {
+        # random effects
+        for (Treat.i in 2:n.Treat.ID.i) {
+          ## need to fix here
           code <- paste0(code,
-                         "\t\t\tlp[j, i] <- alpha[i]")
+                         "\t\tbeta_", Treat.i, "[i] ~ dnorm(d[uniq.Treat.matrix[", Treat.i, ", i]] - d[uniq.Treat.matrix[1, i]], prec_beta)\n")
         }
-      } # log link function
 
-      for(Treat.i in 2:n.Treat.ID.i){
+        # assign the actual eta cov
+        if (!is.null(nof1$cov.matrix)) {
+
+          if (nof1$model.intcpt == "fixed") {
+            for (Treat.i in 2:n.Treat.ID.i) {
+              for (cov.i in 1:nrow(nof1$cov.matrix)) {
+                code <- paste0(code,
+                               "\t\teta_cov_i[i, ", Treat.i, ", ", cov.i, "] <- eta_cov[uniq.Treat.matrix[", Treat.i, ", i], ", cov.i, "] - eta_cov[uniq.Treat.matrix[1, i], ", cov.i, "]\n")
+              }
+            }
+          }
+          # else if (nof1$model.intcpt == "random") {
+          #   for (Treat.i in 1:n.Treat.ID.i) {
+          #     for (cov.i in 1:nrow(nof1$cov.matrix)) {
+          #       code <- paste0(code,
+          #                      "\t\teta_cov_i[i, ", Treat.i, ", ", cov.i, "] <- eta_cov[uniq.Treat.matrix[", Treat.i, ", i], ", cov.i, "]\n")
+          #     }
+          #   }
+          # } # else if (nof1$model.intcpt == "random") {
+
+        } # if (!is.null(nof1$cov.matrix)) {
+
+        # First level model
         code <- paste0(code,
-                       " + beta_", Treat.i, "[i] * Treat.", Treat.i, "[j, i]")
-      }
+                       "\t\tfor (j in 1:nobs.ID[i]) {\n")
 
-      # adjust for trend by basis splines
-      if (nof1$spline.trend) {
-        for (l in 1:nof1$spline.df){
-          code <- paste0(code, " + eta[", l, "] * spline.matrix[time.matrix[j, i], ", l,"]")
-        }
-      }
+        code <- paste0(code,
+                       "\t\t\tY.matrix[j, i] ~ dbern(p[j, i])\n")
 
-      # adjust for level 2 covariates
-      if (!is.null(nof1$cov.matrix)) {
-        # work for fixed intercept model only
-        for (Treat.i in 2:length(nof1$Treat.name)) {
-          for (cov.i in 1:nrow(nof1$cov.matrix)) {
+        if (nof1$model.linkfunc == "log") {
+          code <- paste0(code,
+                         "\t\t\tp[j, i] <- exp(rlp[j, i])\n")
+          code <- paste0(code,
+                         "\t\t\trlp[j, i] <- min(0, lp[j, i])\n")
+
+          if (nof1$model.intcpt == "fixed") {
             code <- paste0(code,
-                           " + eta_cov[", Treat.i, ", ", cov.i, "] * cov.matrix[", cov.i, ", i] * Treat.order.", Treat.i, "[j, i]")
+                           "\t\t\tlp[j, i] <- alpha[i]")
+          }
+
+        } else if (nof1$model.linkfunc == "logit") {
+
+          if (nof1$model.intcpt == "fixed") {
+            code <- paste0(code,
+                           "\t\t\tlogit(p[j, i]) <- alpha[i]")
+          }
+
+        } # else if logit link
+
+        for(Treat.i in 2:n.Treat.ID.i){
+          code <- paste0(code,
+                         " + beta_", Treat.i, "[i] * Treat.", Treat.i, "[j, i]")
+        }
+
+        # adjust for trend by basis splines
+        if (nof1$spline.trend) {
+          for (l in 1:nof1$spline.df){
+            code <- paste0(code, " + eta[", l, "] * spline.matrix[time.matrix[j, i], ", l,"]")
           }
         }
-        # eta_cov be a matrix of coefficients for the interaction between treatment and covariates
-      } # if (!is.null(nof1$cov.matrix)) {
-      code <- paste0(code, "\n")
 
-      code <- paste0(code,
-                     "\t\t}\n") # for (j in 1:nobs.ID[i])
-      code <- paste0(code,
-                     "\t}\n\n") # for (i in cumsum:cumsum)
+        # adjust for level 2 covariates
+        if (!is.null(nof1$cov.matrix)) {
 
-    } # if (nof1$summ.nID.perTreat$n_ID_perNTreat[n.Treat.ID.i] != 0) {
-  } # for (n.Treat.ID.i in 2:nrow(nof1$summ.nID.perTreat)) {
+          # # random intercept also first intercept
+          # if (nof1$model.intcpt == "random") {
+          #   for (cov.i in 1:nrow(nof1$cov.matrix)) {
+          #     code <- paste0(code,
+          #                    " + eta_cov_i[i, 1, ", cov.i, "] * cov.matrix[", cov.i, ", i] * Treat.1[j, i]")
+          #   }
+          # }
+
+          # work for fixed intercept model only
+          for (Treat.i in 2:n.Treat.ID.i) {
+            for (cov.i in 1:nrow(nof1$cov.matrix)) {
+              code <- paste0(code,
+                             " + eta_cov_i[i, ", Treat.i, ", ", cov.i, "] * cov.matrix[", cov.i, ", i] * Treat.", Treat.i, "[j, i]")
+            }
+          }
+          # eta_cov be a matrix of coefficients for the interaction between treatment and covariates
+        } # if (!is.null(nof1$cov.matrix)) {
+        code <- paste0(code, "\n")
+
+        code <- paste0(code,
+                       "\t\t}\n") # for (j in 1:nobs.ID[i])
+        code <- paste0(code,
+                       "\t}\n\n") # for (i in cumsum:cumsum)
+
+      } # if (nof1$summ.nID.perTreat$n_ID_perNTreat[n.Treat.ID.i] != 0) {
+    } # for (n.Treat.ID.i in 2:nrow(nof1$summ.nID.perTreat)) {
+  } # if (nrow(nof1$summ.nID.perTreat) >= 2) {
 
   # Priors
   # alpha prior
@@ -1859,7 +2048,9 @@ nof1.nma.binomial.rjags <- function(nof1) {
 
   # prior for prec_beta
   code <- paste0(code,
-                 "\tprec_beta ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n\n")
+                 "\tprec_beta <- pow(sd_beta, -2)\n")
+  code <- paste0(code,
+                 "\tsd_beta ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n\n")
 
   # prior for trend coefficients - splines
   if (nof1$spline.trend) {
@@ -1872,10 +2063,21 @@ nof1.nma.binomial.rjags <- function(nof1) {
 
   # prior for coefficients for level 2 covariates
   if (!is.null(nof1$cov.matrix)) {
+
     code <- paste0(code,
-                   "\tfor (i in 2:", length(nof1$Treat.name), ") {\n")
-    code <- paste0(code,
-                   "\t\tfor (j in 1:", nrow(nof1$cov.matrix), ") {\n")
+                   "\tfor (j in 1:", nrow(nof1$cov.matrix), ") {\n")
+
+    if (nof1$model.intcpt == "fixed") {
+      code <- paste0(code,
+                     "\t\teta_cov[1, j] <- 0\n")
+      code <- paste0(code,
+                     "\t\tfor (i in 2:", length(nof1$Treat.name), ") {\n")
+    }
+    # else if (nof1$model.intcpt == "random") {
+    #   code <- paste0(code,
+    #                  "\t\tfor (i in 1:", length(nof1$Treat.name), ") {\n")
+    # }
+
     code <- paste0(code, "\t\t\teta_cov[i, j] ~ ", nof1$eta.prior[[1]], "(", nof1$eta.prior[[2]], ", ", nof1$eta.prior[[3]], ")\n")
     code <- paste0(code,
                    "\t\t}\n")
