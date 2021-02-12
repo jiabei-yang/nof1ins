@@ -1,4 +1,4 @@
-#' Run the model using the nof1 object
+#' Run the model using the nof1 object for individual analysis
 #'
 #' This is the core function that runs the model in our program. Before running this function, we need to specify data, prior,
 #' JAGS code, etc. using \code{\link{nof1.data}}.
@@ -247,6 +247,27 @@ nof1.ma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, sets
 
 }
 
+#' Run the model using the nof1 object for (network) meta-analyses
+#'
+#' This is the core function that runs the model in our program. Before running this function, we need to specify data, prior,
+#' JAGS code, etc. using \code{\link{nof1.nma.data}}.
+#'
+#' @param nof1 nof1 object created from \code{\link{nof1.nma.data}} function
+#' @param inits Initial values for the parameters being sampled. If left unspecified, program will generate
+#' reasonable initial values.
+#' @param n.chains Number of chains to run
+#' @param max.run Maximum number of iterations that user is willing to run. If the algorithm is not
+#' converging, it will run up to \code{max.run} iterations before printing a message that it did not converge
+#' @param setsize Number of iterations that are run between convergence checks. If the algorithm converges
+#' fast, user wouldn't need a big setsize. The number that is printed between each convergence checks is the
+#' gelman-rubin diagnostics and we would want that to be below the conv.limit the user specifies.
+#' @param n.run Final number of iterations that the user wants to store. If after the algorithm converges,
+#' user wants less number of iterations, we thin the sequence. If the user wants more iterations, we run
+#' extra iterations to reach the specified number of runs
+#' @param conv.limit Convergence limit for Gelman and Rubin's convergence diagnostic.
+#' @param extra.pars.save Parameters that user wants to save besides the default parameters saved. See code
+#' using \code{cat(nof1$code)} to see which parameters can be saved.
+#'
 #' @export
 # Network meta analysis
 nof1.nma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, setsize = 10000, n.run = 50000,

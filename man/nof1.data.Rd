@@ -2,7 +2,7 @@
 % Please edit documentation in R/nof1.data.R
 \name{nof1.data}
 \alias{nof1.data}
-\title{Make an N of 1 object containing data, priors, and a jags model file}
+\title{Make an N of 1 object containing data, priors, and a jags model file for individual analysis}
 \usage{
 nof1.data(
   Y,
@@ -97,7 +97,7 @@ containing
 \item{code}{Rjags model file code that is generated using information provided by the user. To view model file inside R, use \code{cat(nof1$code).}}
 }
 \description{
-Make an N of 1 object containing data, priors, and a jags model file
+Make an N of 1 object containing data, priors, and a jags model file for individual analysis
 }
 \examples{
 ###Blocker data example

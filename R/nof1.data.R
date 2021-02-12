@@ -1,4 +1,4 @@
-#' Make an N of 1 object containing data, priors, and a jags model file
+#' Make an N of 1 object containing data, priors, and a jags model file for individual analysis
 #'
 #' @param Y Outcome of the study. This should be a vector with \code{NA}'s included in time order.
 #' @param Treat Treatment indicator vector with same length as the outcome. Can be character or numeric.
@@ -391,6 +391,55 @@ nof1.ma.data <- function(Y, Treat, baseline.Treat, ID, response,
   return(nof1)
 }
 
+#' Make an N of 1 object containing data, priors, and a jags model file for (network) meta-analyses
+#'
+#' @param Y Outcome of the study. This should be a vector with \code{NA}'s included in time order.
+#' @param Treat Treatment indicator vector with the same length as the outcome. Can be character or numeric.
+#' @param baseline.Treat Name of the reference treatment.
+#' @param ID Participant ID vector with the same length as the outcome.
+#' @param response Type of outcome. Can be "normal" for continuous outcome, "binomial" for binary outcome,
+#' "poisson" for count outcome, or "ordinal" for ordinal or nominal outcome.
+#' @param model.linkfunc Link function in the model.
+#' @param model.intcpt Form of intercept.
+#' @param model.slp Form of slope. For link function and the forms of intercept and slopes, currently implemented for
+#' 1) normal response: "identity"-"fixed/random"-"random", 2) poisson response: "log"-"fixed"-"random",
+#' 3) binomial response: "log/logit"-"fixed"-"random".
+#' @param ord.ncat Number of categories in ordinal response. The parameters for ordinal outcomes need to be tested.
+#' @param ord.model Used for ordinal outcome to pick the model. Can be "cumulative" for cumulative probability model
+#' or "acat" for adjacent category model.
+#' @param ord.parallel Whether or not the comparisons between categories or cumulative probabilities are parallel.
+#' @param lvl2.cov Participant level covariates for heterogeneous treatment effects.
+#' Should be a data frame with the columns being the covariates and the number of rows should be equal to the length of the outcome.
+#' For fixed-intercept model, participant level covariates will have interaction with treatment (slope) because
+#' there are fixed-intercepts adjusting for each participant in the model; for random-intercept model, participant level covariates
+#'  will have interaction with all treatment-specific intercepts.
+#' @param spline.trend Indicator for whether the model should adjust for trend using splines. The default
+#' is \code{F}.
+#' @param trend.type "bs" for basis splines or "ns" for natural splines.
+#' @param y.time Time when the outcome is measured. Required when adjusting for trend or correlation
+#' (\code{spline.trend}/\code{step.trend}/\code{corr.y} is \code{TRUE}). Should be a vector of the same length as the outcome.
+#' @param knots Knots in \code{y.time} when adjusting for trend using splines. For \code{trend.type = "bs"}, knots should be set
+#' at the end of each block except for the last block; for or \code{trend.type = "ns"}, knots should be set at the end of each
+#' period except for the last period.
+#' @param trend.df Degrees of freedom for modeling splines when knots are not set.
+#' @param step.trend Indicator for whether to adjust for trend using step functions for each period.
+#' @param y.step Period number corresponding to the outcome. Should be a vector of the same length of the outcome.
+#' @param corr.y Indicator for whether the correlation among measurements shoule be modeled. The default is
+#' \code{F}.
+#' @param alpha.prior Prior for the fixed-intercepts.
+#' @param beta.prior Prior for random intercepts or slopes.
+#' @param eta.prior Prior for modelling spline terms or heterogeneous treatment effects.
+#' @param dc.prior Prior for the length between cutpoints. Used only for ordinal logistic models.
+#' @param c1.prior Prior for the first cutpoint. Used only for ordinal logistic models.
+#' @param rho.prior Prior for the correlation between random effects or the correlation among repeated measurements on each participant.
+#' @param hy.prior Prior for the variance of the residual errors for normal response or the variance of random effects.
+
+# Supports uniform, gamma, and half normal for
+# normal and binomial response and wishart for multinomial response. It should be a list of length 3,
+# where first element should be the distribution (one of dunif, dgamma, dhnorm, dwish) and the next
+# two are the parameters associated with the distribution. For example, list("dunif", 0, 5) give
+# uniform prior with lower bound 0 and upper bound 5 for the heterogeneity parameter. For wishart
+# distribution, the last two parameter would be the scale matrix and the degrees of freedom.
 
 #' @export
 
@@ -404,10 +453,6 @@ nof1.nma.data <- function(Y, Treat, baseline.Treat, ID, response,
                           corr.y = F,
                           alpha.prior = NULL, beta.prior = NULL, eta.prior = NULL, dc.prior = NULL, c1.prior = NULL,
                           rho.prior = NULL, hy.prior = NULL, ...) {
-
-  # lvl2.cov: participant level covariates. must be a dataframe even if only one column
-  #           can only have interaction with treatment effect because participant have specific intercept already in the fixed intercept model
-  #           in the random intercept model it will have interaction with treatment anyway
 
   data.long <- data.frame(ID, Treat, Y)
 
