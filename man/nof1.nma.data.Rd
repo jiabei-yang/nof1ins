@@ -101,7 +101,8 @@ period except for the last period.}
 
 \item{rho.prior}{Prior for the correlation between random effects or the correlation among repeated measurements on each participant.}
 
-\item{hy.prior}{Prior for the variance of the residual errors for normal response or the variance of random effects.}
+\item{hy.prior}{Prior for the variance of the residual errors for normal response,
+the standard deviation of random slopes for binary outcome, the variance of random effects for other types of outcomes.}
 }
 \description{
 Make an N of 1 object containing data, priors, and a jags model file for (network) meta-analyses

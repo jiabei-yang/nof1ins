@@ -432,7 +432,8 @@ nof1.ma.data <- function(Y, Treat, baseline.Treat, ID, response,
 #' @param dc.prior Prior for the length between cutpoints. Used only for ordinal logistic models.
 #' @param c1.prior Prior for the first cutpoint. Used only for ordinal logistic models.
 #' @param rho.prior Prior for the correlation between random effects or the correlation among repeated measurements on each participant.
-#' @param hy.prior Prior for the variance of the residual errors for normal response or the variance of random effects.
+#' @param hy.prior Prior for the variance of the residual errors for normal response,
+#' the standard deviation of random slopes for binary outcome, the variance of random effects for other types of outcomes.
 
 # Supports uniform, gamma, and half normal for
 # normal and binomial response and wishart for multinomial response. It should be a list of length 3,
