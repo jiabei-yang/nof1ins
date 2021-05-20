@@ -84,6 +84,7 @@ nof1.normal.rjags <- function(nof1){
       }
     } # if (length(beta.prior) > 3) {
   } #  for(i in Treat.name){
+  code <- paste0(code, "\n")
 
   if (nof1$bs.trend){
     for (i in 1:nof1$bs_df){
@@ -91,7 +92,24 @@ nof1.normal.rjags <- function(nof1){
     }
   }
 
-  code <- paste0(code, nof1.hy.prior.rjags(nof1$hy.prior), "\n}")
+  if (nof1$hy.prior[[1]] == "dunif") {
+    code <- paste0(code,
+                   "\n\tprec <- pow(sd, -2)",
+                   "\n\tsd ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")")
+  } else if(nof1$hy.prior[[1]] == "dgamma"){
+    code <- paste0(code,
+                   "\n\tsd <- pow(prec, -0.5)",
+                   "\n\tprec ~ dgamma(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")",
+                   "\n\tlogprec <- log(prec)")
+  } else if(nof1$hy.prior[[1]] == "dhnorm"){
+    code <- paste0(code,
+                   "\n\tsd ~ dnorm(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")T(0,)",
+                   "\n\tprec <- pow(sd, -2)")
+  }
+
+  code <- paste0(code,
+                 # nof1.hy.prior.rjags(nof1$hy.prior),
+                 "\n}")
   return(code)
 }
 
@@ -319,29 +337,6 @@ nof1.ordinal.rjags <- function(nof1){
   code <- paste0(code, "}")
   return(code)
 
-}
-
-nof1.hy.prior.rjags <- function(hy.prior){
-
-  code <- ""
-  distr <- hy.prior[[1]]
-  if (distr == "dunif") {
-    code <- paste0(code,
-                   "\n\tsd <- pow(prec, -0.5)",
-                   "\n\tprec ~ ", hy.prior[[1]], "(", hy.prior[[2]], ", ", hy.prior[[3]], ")",
-                   "\n\tlogprec <- log(prec)")
-  } else if(distr == "dgamma"){
-    code <- paste0(code,
-                   "\n\tsd <- pow(prec, -0.5)",
-                   "\n\tprec ~ dgamma(", hy.prior[[2]], ", ", hy.prior[[3]], ")",
-                   "\n\tlogprec <- log(prec)")
-  } else if(distr == "dhnorm"){
-    code <- paste0(code,
-                   "\n\tsd ~ dnorm(", hy.prior[[2]], ", ", hy.prior[[3]], ")T(0,)",
-                   "\n\tprec <- pow(sd, -2)",
-                   "\n\tlogprec <- log(prec)")
-  }
-  return(code)
 }
 
 #################################
@@ -1581,11 +1576,16 @@ nof1.nma.normal.rjags <- function(nof1) {
 
   # prior for prec_beta
   code <- paste0(code,
-                 "\tprec_beta ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n\n")
+                 "\tprec_beta <- pow(sd_beta, -2)\n")
+  code <- paste0(code,
+                 "\tsd_beta ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n\n")
 
   # prior for residual error
   code <- paste0(code,
-                 "\tprec_resid ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n")
+                 "\tprec_resid <- pow(sd_resid, -2)\n")
+  code <- paste0(code,
+                 "\tsd_resid ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n")
+
   # prior for serial correlation
   if (nof1$corr.y) {
     code <- paste0(code,
@@ -1806,7 +1806,9 @@ nof1.nma.poisson.rjags <- function(nof1) {
 
   # prior for prec_beta
   code <- paste0(code,
-                 "\tprec_beta ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n\n")
+                 "\tprec_beta <- pow(sd_beta, -2)\n")
+  code <- paste0(code,
+                 "\tsd_beta ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n\n")
 
   # prior for trend coefficients - splines
   if (nof1$spline.trend) {

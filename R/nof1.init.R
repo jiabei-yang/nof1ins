@@ -72,28 +72,28 @@ nof1.inits.normal <- function(nof1, n.chains){
       }
     }
 
-    if(!is.nan(summary(model)$fstat[1])){
-      for(i in 1:n.chains){
-
-        fit <- summary(model)
-        df <- fit$df[2]
-        random.ISigma <- rchisq(1, df)
-        resid.var <- fit$sigma^2
-        sigma2 <- resid.var * df/ random.ISigma
-
-        if(hy.prior[[1]] == "dunif"){
-          if(sqrt(sigma2) > hy.prior[[3]]){
-            stop("data has more variability than your prior does")
-          }
-        }
-
-        if((hy.prior[[1]] == "dgamma") | (hy.prior[[1]] == "dunif")){
-          initial.values[[i]][["prec"]] <- 1/sigma2
-        } else if(network$hy.prior[[1]] == "dhnorm"){
-          initial.values[[i]][["sd"]] <- sqrt(sigma2)
-        }
-      }
-    }
+    # if(!is.nan(summary(model)$fstat[1])){
+    #   for(i in 1:n.chains){
+    #
+    #     fit <- summary(model)
+    #     df <- fit$df[2]
+    #     random.ISigma <- rchisq(1, df)
+    #     resid.var <- fit$sigma^2
+    #     sigma2 <- resid.var * df/ random.ISigma
+    #
+    #     if(hy.prior[[1]] == "dunif"){
+    #       if(sqrt(sigma2) > hy.prior[[3]]){
+    #         stop("data has more variability than your prior does")
+    #       }
+    #     }
+    #
+    #     if(hy.prior[[1]] == "dgamma"){
+    #       initial.values[[i]][["prec"]] <- 1/sigma2
+    #     } else if((hy.prior[[1]] == "dnorm") | (hy.prior[[1]] == "dunif")){
+    #       initial.values[[i]][["sd"]] <- sqrt(sigma2)
+    #     }
+    #   }
+    # }
     return(initial.values)
   })
 

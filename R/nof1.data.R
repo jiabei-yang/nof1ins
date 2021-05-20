@@ -453,7 +453,8 @@ nof1.nma.data <- function(Y, Treat, baseline.Treat, ID, response,
                           step.trend = F, y.step = NULL,
                           corr.y = F,
                           alpha.prior = NULL, beta.prior = NULL, eta.prior = NULL, dc.prior = NULL, c1.prior = NULL,
-                          rho.prior = NULL, hy.prior = NULL, ...) {
+                          rho.prior = NULL, hy.prior = NULL,
+                          na.rm = T, ...) {
 
   data.long <- data.frame(ID, Treat, Y)
 
@@ -467,11 +468,20 @@ nof1.nma.data <- function(Y, Treat, baseline.Treat, ID, response,
     mutate(Treat = factor(Treat, Treat.name))
 
   # summary by ID
-  summ.ID <- data.long %>%
-    group_by(ID) %>%
-    summarise(nobs = sum(!is.na(Y)),
-              n_Treat = length(unique(Treat[!is.na(Y)]))) %>%
-    arrange(n_Treat) # order by the # of treatment
+  if (na.rm) {
+    summ.ID <- data.long %>%
+      group_by(ID) %>%
+      summarise(nobs = sum(!is.na(Y)),
+                n_Treat = length(unique(Treat[!is.na(Y)]))) %>%
+      arrange(n_Treat) # order by the # of treatment
+  } else {
+    summ.ID <- data.long %>%
+      group_by(ID) %>%
+      summarise(nobs = n(),
+                n_Treat = length(unique(Treat))) %>%
+      arrange(n_Treat) # order by the # of treatment
+  }
+
   max.obs.ID <- max(summ.ID$nobs)
 
   summ.nID.perTreat <- summ.ID %>%
@@ -506,16 +516,31 @@ nof1.nma.data <- function(Y, Treat, baseline.Treat, ID, response,
     nof1[[paste0("Treat.", Treat.i)]] <- matrix(NA, nrow = max.obs.ID, ncol = nrow(summ.ID))
   }
 
-  for (ID.i in 1:nrow(summ.ID)) {
-    Y.matrix[1:summ.ID$nobs[ID.i], ID.i] <- data.long$Y[(ID == summ.ID$ID[ID.i]) & (!is.na(data.long$Y))]
-    Treat.matrix[1:summ.ID$nobs[ID.i], ID.i] <- as.numeric(data.long$Treat[(ID == summ.ID$ID[ID.i]) & (!is.na(data.long$Y))])
+  if (na.rm) {
+    for (ID.i in 1:nrow(summ.ID)) {
+      Y.matrix[1:summ.ID$nobs[ID.i], ID.i] <- data.long$Y[(ID == summ.ID$ID[ID.i]) & (!is.na(data.long$Y))]
+      Treat.matrix[1:summ.ID$nobs[ID.i], ID.i] <- as.numeric(data.long$Treat[(ID == summ.ID$ID[ID.i]) & (!is.na(data.long$Y))])
 
-    tmp.Treat <- sort(unique(Treat.matrix[1:summ.ID$nobs[ID.i], ID.i]))
-    uniq.Treat.matrix[1:summ.ID$n_Treat[ID.i], ID.i] <- tmp.Treat
-    for (Treat.i in 1:summ.ID$n_Treat[ID.i]) {
-      nof1[[paste0("Treat.", Treat.i)]][1:summ.ID$nobs[ID.i], ID.i] <- as.numeric(Treat.matrix[1:summ.ID$nobs[ID.i], ID.i] == tmp.Treat[Treat.i])
+      tmp.Treat <- sort(unique(Treat.matrix[1:summ.ID$nobs[ID.i], ID.i]))
+      uniq.Treat.matrix[1:summ.ID$n_Treat[ID.i], ID.i] <- tmp.Treat
+      for (Treat.i in 1:summ.ID$n_Treat[ID.i]) {
+        nof1[[paste0("Treat.", Treat.i)]][1:summ.ID$nobs[ID.i], ID.i] <- as.numeric(Treat.matrix[1:summ.ID$nobs[ID.i], ID.i] == tmp.Treat[Treat.i])
+      }
+    }
+  } else { # na.rm
+
+    for (ID.i in 1:nrow(summ.ID)) {
+      Y.matrix[1:summ.ID$nobs[ID.i], ID.i] <- data.long$Y[ID == summ.ID$ID[ID.i]]
+      Treat.matrix[1:summ.ID$nobs[ID.i], ID.i] <- as.numeric(data.long$Treat[ID == summ.ID$ID[ID.i]])
+
+      tmp.Treat <- sort(unique(Treat.matrix[1:summ.ID$nobs[ID.i], ID.i]))
+      uniq.Treat.matrix[1:summ.ID$n_Treat[ID.i], ID.i] <- tmp.Treat
+      for (Treat.i in 1:summ.ID$n_Treat[ID.i]) {
+        nof1[[paste0("Treat.", Treat.i)]][1:summ.ID$nobs[ID.i], ID.i] <- as.numeric(Treat.matrix[1:summ.ID$nobs[ID.i], ID.i] == tmp.Treat[Treat.i])
+      }
     }
   }
+
   nof1$Y.matrix <- Y.matrix
   nof1$Treat.matrix <- Treat.matrix
   nof1$uniq.Treat.matrix <- uniq.Treat.matrix

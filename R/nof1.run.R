@@ -440,7 +440,7 @@ jags.fit <- function(nof1, data, pars.save, inits, n.chains, max.run, setsize, n
 
   # check if the samples reach the number of n.run
   n.thin <- 1
-  if(check){
+  if (check) {
     stop("code didn't converge according to gelman-rubin diagnostics")
   } else if (n.run < burnin) {
     n.thin <- ceiling(burnin/n.run)
@@ -454,13 +454,46 @@ jags.fit <- function(nof1, data, pars.save, inits, n.chains, max.run, setsize, n
     extra.run <- n.run - burnin
     samples2 <- rjags::coda.samples(mod, variable.names = pars.save, n.iter = extra.run)
     samples <- add.mcmc(samples, samples2)
+    # max.gelman <- find.max.gelman(samples)
+    # print(max.gelman)
+  }
+
+  max.gelman <- find.max.gelman(samples)
+  print(max.gelman)
+  check <- max.gelman > conv.limit
+
+  # redraw samples if jumped out of convergence range
+  if (check) {
+
+    while (check & (count < max.run/setsize)) {
+      # last.count <- count
+      samples2   <- rjags::coda.samples(mod, variable.names = pars.save, n.iter = setsize)
+      samples    <- add.mcmc(samples, samples2)
+
+      count <- count + 1
+
+      samples <- window(samples,
+                        start = setsize + 1,
+                        end   = n.run + setsize,
+                        frequency = 1)
+      # for (i in 1:length(samples)) {
+      #   tmp.samples[[i]] <- samples[[i]][round(seq(1, dim(samples[[i]])[1], length.out = n.run)), ]
+      # }
+      # tmp.samples <- new.mcmc(tmp.samples)
+
+      max.gelman <- find.max.gelman(samples)
+      check <- max.gelman > conv.limit
+      print(max.gelman)
+    }
+    # samples <- tmp.samples
   }
 
   # find DIC
   dic <- dic.samples(mod, n.iter = 10^4)
 
-  max.gelman <- find.max.gelman(samples)
-  print(max.gelman)
+  if(check){
+    stop("code didn't converge according to gelman-rubin diagnostics")
+  }
 
   out <-list(burnin = burnin, n.thin = n.thin, samples = samples, max.gelman = max.gelman, dic = dic)
   return(out)
