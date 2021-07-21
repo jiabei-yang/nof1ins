@@ -32,6 +32,7 @@ nof1.nma.data(
   c1.prior = NULL,
   rho.prior = NULL,
   hy.prior = NULL,
+  na.rm = T,
   ...
 )
 }
