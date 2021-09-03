@@ -975,7 +975,7 @@ nof1.nma.normal.inits <- function(nof1, n.chains) {
 
   if (!is.null(nof1$cov.matrix)) {
     for (cov.i in 1:nof1$n.cov) {
-      tmp.formula <- paste0(tmp.formula, " + nof1$data.long$cov", cov.i, ":nof1$data.long$Treat")
+      tmp.formula <- paste0(tmp.formula, " + nof1$data.long$lvl2.cov", cov.i, ":nof1$data.long$Treat")
     }
   }
 

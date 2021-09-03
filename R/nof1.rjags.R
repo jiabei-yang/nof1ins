@@ -1253,19 +1253,22 @@ nof1.nma.normal.rjags <- function(nof1) {
     code <- paste0(code,
                    "\tfor (i in 1:", nof1$summ.nID.perTreat$n_ID_perNTreat[1], ") {\n")
 
+    # random intercept should not include participants with only one treatment
     if (nof1$model.intcpt == "random") {
-      code <- paste0(code,
-                     "\t\tbeta_1[i] ~ dnorm(b[uniq.Treat.matrix[1, i]], prec_beta)\n")
 
-      # covariate coefficients will be 0 any way for only one treatment if fixed intercept
-      if (!is.null(nof1$cov.matrix)) {
-
-        for (cov.i in 1:nrow(nof1$cov.matrix)) {
-          code <- paste0(code,
-                         "\t\teta_cov_i[i, 1, ", cov.i, "] <- eta_cov[uniq.Treat.matrix[1, i], ", cov.i, "]\n")
-        }
-
-      } # assign the actual eta cov
+      stop("Random intercept model should not include participants with only one treatment!")
+      # code <- paste0(code,
+      #                "\t\tbeta_1[i] ~ dnorm(b[uniq.Treat.matrix[1, i]], prec_beta)\n")
+      #
+      # # covariate coefficients will be 0 any way for only one treatment if fixed intercept
+      # if (!is.null(nof1$cov.matrix)) {
+      #
+      #   for (cov.i in 1:nrow(nof1$cov.matrix)) {
+      #     code <- paste0(code,
+      #                    "\t\teta_cov_i[i, 1, ", cov.i, "] <- eta_cov[uniq.Treat.matrix[1, i], ", cov.i, "]\n")
+      #   }
+      #
+      # } # assign the actual eta cov
     } # if random intercept
 
     # First level model
@@ -1291,10 +1294,11 @@ nof1.nma.normal.rjags <- function(nof1) {
     if (nof1$model.intcpt == "fixed") {
       code <- paste0(code,
                      "\t\t\tmu[j, i] <- alpha[i]")
-    } else if (nof1$model.intcpt == "random") {
-      code <- paste0(code,
-                     "\t\t\tmu[j, i] <- beta_1[i] * Treat.1[j, i]")
     }
+    # else if (nof1$model.intcpt == "random") {
+    #   code <- paste0(code,
+    #                  "\t\t\tmu[j, i] <- beta_1[i] * Treat.1[j, i]")
+    # }
 
     # adjust for trend by basis splines
     if (nof1$spline.trend) {
@@ -1426,6 +1430,24 @@ nof1.nma.normal.rjags <- function(nof1) {
           }
         }
 
+        # adjust for stratification covariates
+        # fixed stratification covariates
+        if (!is.null(nof1$fixed.strata.cov.matrix)) {
+
+          for (cov.i in 1:nof1$n.fixed.cov.model) {
+            code <- paste0(code,
+                           " + eta_fixed_strata_cov[", cov.i, "] * fixed.strata.cov.matrix[", cov.i, ", i]")
+          }
+        }
+
+        # random stratification covariates
+        if (!is.null(nof1$random.strata.cov.matrix)) {
+          for (cov.i in 1:nof1$n.random.cov.model) {
+            code <- paste0(code,
+                           " + eta_random_strata_cov_lvls[random.strata.cov.matrix[", cov.i, ", i], ", cov.i, "]")
+          }
+        }
+
         # adjust for level 2 covariates
         if (!is.null(nof1$cov.matrix)) {
 
@@ -1476,6 +1498,24 @@ nof1.nma.normal.rjags <- function(nof1) {
                    "\t\t}\n") # j loop
     code <- paste0(code,
                    "\t}\n\n") # i loop
+  }
+
+  # random stratification covariates
+  if (!is.null(nof1$random.strata.cov.matrix)) {
+
+    if (nof1$n.random.cov.model > 1) {
+      # NEED TO CONSIDER CORRELATION AMONG RANDOM EFFECTS
+      stop("NEED TO DEVELOP CODE FOR MORE THAN ONE RANDOM STRATIFICATION COVARIATES!")
+
+    } else {
+      code <- paste0(code,
+                     "\tfor (i in 1:", max(nof1$random.strata.cov.matrix[1, ]), ") {\n")
+      code <- paste0(code,
+                     "\t\teta_random_strata_cov_lvls[i, 1] ~ dnorm(eta_random_strata_cov[1], prec_eta_random_strata_cov)\n")
+      code <- paste0(code,
+                     "\t}\n\n")
+
+    }
   }
 
   # Priors
@@ -1610,6 +1650,35 @@ nof1.nma.normal.rjags <- function(nof1) {
     code <- paste0(code, "\t\teta[l] ~ ", nof1$eta.prior[[1]], "(", nof1$eta.prior[[2]], ", ", nof1$eta.prior[[3]], ")\n")
     code <- paste0(code,
                    "\t}\n\n")
+  }
+
+  # prior for coefficients for stratification covariates
+  # fixed stratification covariates
+  if (!is.null(nof1$fixed.strata.cov.matrix)) {
+    code <- paste0(code,
+                   "\tfor (i in 1:", nof1$n.fixed.cov.model,") {\n")
+    code <- paste0(code,
+                   "\t\teta_fixed_strata_cov[i] ~ ", nof1$eta.prior[[1]], "(", nof1$eta.prior[[2]], ", ", nof1$eta.prior[[3]], ")\n")
+    code <- paste0(code,
+                   "\t}\n\n")
+
+  }
+
+  # random stratification covariates
+  if (!is.null(nof1$random.strata.cov.matrix)) {
+    code <- paste0(code,
+                   "\tfor (i in 1:", nof1$n.random.cov.model,") {\n")
+    code <- paste0(code,
+                   "\t\teta_random_strata_cov[i] ~ ", nof1$eta.prior[[1]], "(", nof1$eta.prior[[2]], ", ", nof1$eta.prior[[3]], ")\n")
+    code <- paste0(code,
+                   "\t}\n")
+
+    # prior for prec_eta_random_strata_cov
+    code <- paste0(code,
+                   "\tprec_eta_random_strata_cov <- pow(sd_eta_random_strata_cov, -2)\n")
+    code <- paste0(code,
+                   "\tsd_eta_random_strata_cov ~ ", nof1$hy.prior[[1]], "(", nof1$hy.prior[[2]], ", ", nof1$hy.prior[[3]], ")\n\n")
+
   }
 
   # prior for coefficients for level 2 covariates
@@ -1850,8 +1919,6 @@ nof1.nma.poisson.rjags <- function(nof1) {
 }
 
 nof1.nma.binomial.rjags <- function(nof1) {
-
-  # only log link, fixed intercept work for now
 
   code <- paste0("model{\n")
 

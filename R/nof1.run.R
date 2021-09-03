@@ -326,6 +326,15 @@ nof1.nma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, set
     pars.save <- c(pars.save, "rho_resid")
   }
 
+  # stratification covariates used during randomization
+  if (!is.null(nof1$fixed.strata.cov.matrix)) {
+    pars.save <- c(pars.save, "eta_fixed_strata_cov")
+  }
+
+  if (!is.null(nof1$random.strata.cov.matrix)) {
+    pars.save <- c(pars.save, "eta_random_strata_cov", "eta_random_strata_cov_lvls", "prec_eta_random_strata_cov")
+  }
+
   # extra parameters
   if (!is.null(extra.pars.save)) {
     pars.save <- c(pars.save, extra.pars.save)
@@ -371,6 +380,15 @@ nof1.nma.run <- function(nof1, inits = NULL, n.chains = 3, max.run = 100000, set
   # data on time - correlation
   if (nof1$corr.y) {
     data$time.matrix   <- nof1$time.matrix
+  }
+
+  # stratification covariates used during randomization
+  if (!is.null(nof1$fixed.strata.cov.matrix)) {
+    data$fixed.strata.cov.matrix <- nof1$fixed.strata.cov.matrix
+  }
+
+  if (!is.null(nof1$random.strata.cov.matrix)) {
+    data$random.strata.cov.matrix <- nof1$random.strata.cov.matrix
   }
 
   # Initial values

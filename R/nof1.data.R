@@ -408,6 +408,11 @@ nof1.ma.data <- function(Y, Treat, baseline.Treat, ID, response,
 #' @param ord.model Used for ordinal outcome to pick the model. Can be "cumulative" for cumulative probability model
 #' or "acat" for adjacent category model.
 #' @param ord.parallel Whether or not the comparisons between categories or cumulative probabilities are parallel.
+#' @param strata.cov Only applicable when random intercept model is used. Stratification covariates used during randomization.
+#' Should be a data frame with the columns being the covariates and the number of rows should be equal to the length of the
+#' outcome. Must be of factor type if categorical covariates.
+#' @param adjust.strata.cov Only applicable when random intercept model is used. A vector with each element taking on possible
+#' values from \code{c("fixed", "random")} indicating how the stratification covariate should be adjusted in the model.
 #' @param lvl2.cov Participant level covariates for heterogeneous treatment effects.
 #' Should be a data frame with the columns being the covariates and the number of rows should be equal to the length of the outcome.
 #' For fixed-intercept model, participant level covariates will have interaction with treatment (slope) because
@@ -448,7 +453,7 @@ nof1.ma.data <- function(Y, Treat, baseline.Treat, ID, response,
 nof1.nma.data <- function(Y, Treat, baseline.Treat, ID, response,
                           model.linkfunc = NULL, model.intcpt = "fixed", model.slp = "random",
                           ord.ncat = NULL, ord.model, ord.parallel = NULL,
-                          lvl2.cov = NULL,
+                          strata.cov = NULL, adjust.strata.cov = NULL, lvl2.cov = NULL,
                           spline.trend = F, trend.type, y.time = NULL, knots = NULL, trend.df = NULL,
                           step.trend = F, y.step = NULL,
                           corr.y = F,
@@ -643,11 +648,65 @@ nof1.nma.data <- function(Y, Treat, baseline.Treat, ID, response,
     nof1$time.matrix <- time.matrix
   }
 
+  # stratification covariates used during randomization
+  if (!is.null(strata.cov)) {
+
+    if (model.intcpt == "fixed") {
+      stop("Fixed intercept model do not need to adjust for stratification covariates used in randomization!")
+
+    } else if (model.intcpt == "random") {
+
+      nof1$data.long <- cbind(data.long, strata.cov)
+      colnames.cov <- paste0("strata.cov", 1:ncol(strata.cov))
+      colnames(nof1$data.long)[(ncol(nof1$data.long) - ncol(strata.cov) + 1):ncol(nof1$data.long)] <- colnames.cov
+
+      strata.cov.wizId <- nof1$data.long[!duplicated(nof1$data.long[, c("ID", colnames.cov)]), c("ID", colnames.cov)]
+
+      # need to justify the covariates are participant level covariate
+      if (nrow(strata.cov.wizId) != length(nof1$nobs.ID)) {
+        stop("strata.cov must be participant level covariates!")
+      }
+
+      nof1$summ.ID <- nof1$summ.ID %>%
+        left_join(strata.cov.wizId, by = "ID")
+      nonDup.lvl2.cov <- data.frame(nof1$summ.ID[, colnames.cov])
+      for (cov.i in 1:ncol(nonDup.lvl2.cov)) {
+
+        # must be factor covariates
+        # create dummy variables if fixed effects
+        # create ordinal variables if random effects
+        if (is.factor(nonDup.lvl2.cov[, cov.i])) {
+
+          if (adjust.strata.cov[cov.i] == "fixed") {
+            tmp.cov.lvls <- levels(nonDup.lvl2.cov[, cov.i])
+            for (cov.lvls.i in 2:length(tmp.cov.lvls)) {
+              nof1$fixed.strata.cov.matrix <- rbind(nof1$fixed.strata.cov.matrix,
+                                                    as.numeric(nonDup.lvl2.cov[, cov.i] == tmp.cov.lvls[cov.lvls.i]))
+            }
+          } else if (adjust.strata.cov[cov.i] == "random") {
+            nof1$random.strata.cov.matrix <- rbind(nof1$random.strata.cov.matrix,
+                                                   as.numeric(nonDup.lvl2.cov[, cov.i]))
+          }
+
+        } else {
+          stop("strata.cov must be factor!")
+        }
+
+      } # for (cov.i in 1:ncol(nonDup.lvl2.cov)) {
+
+      nof1$n.strata.cov       <- ncol(strata.cov)
+      nof1$adjust.strata.cov  <- adjust.strata.cov
+      nof1$n.fixed.cov.model  <- nrow(nof1$fixed.strata.cov.matrix)
+      nof1$n.random.cov.model <- nrow(nof1$random.strata.cov.matrix)
+    } # random intercept
+
+  } # strata.cov
+
   # participant level covariates
   if (!is.null(lvl2.cov)) {
 
-    nof1$data.long <- cbind(data.long, lvl2.cov)
-    colnames.cov <- paste0("cov", 1:ncol(lvl2.cov))
+    nof1$data.long <- cbind(nof1$data.long, lvl2.cov)
+    colnames.cov <- paste0("lvl2.cov", 1:ncol(lvl2.cov))
     colnames(nof1$data.long)[(ncol(nof1$data.long) - ncol(lvl2.cov) + 1):ncol(nof1$data.long)] <- colnames.cov
 
     lvl2.cov.wizId <- nof1$data.long[!duplicated(nof1$data.long[, c("ID", colnames.cov)]), c("ID", colnames.cov)]
