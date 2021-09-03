@@ -16,6 +16,8 @@ nof1.nma.data(
   ord.ncat = NULL,
   ord.model,
   ord.parallel = NULL,
+  strata.cov = NULL,
+  adjust.strata.cov = NULL,
   lvl2.cov = NULL,
   spline.trend = F,
   trend.type,
@@ -62,6 +64,13 @@ nof1.nma.data(
 or "acat" for adjacent category model.}
 
 \item{ord.parallel}{Whether or not the comparisons between categories or cumulative probabilities are parallel.}
+
+\item{strata.cov}{Only applicable when random intercept model is used. Stratification covariates used during randomization.
+Should be a data frame with the columns being the covariates and the number of rows should be equal to the length of the
+outcome. Must be of factor type if categorical covariates.}
+
+\item{adjust.strata.cov}{Only applicable when random intercept model is used. A vector with each element taking on possible
+values from \code{c("fixed", "random")} indicating how the stratification covariate should be adjusted in the model.}
 
 \item{lvl2.cov}{Participant level covariates for heterogeneous treatment effects.
 Should be a data frame with the columns being the covariates and the number of rows should be equal to the length of the outcome.
